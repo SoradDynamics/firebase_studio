@@ -18,11 +18,11 @@ import Student from "./components/Student";
 import stdSection from "./components/stdSection";
 import Calender from "./components/Calendar";
 import Std_Import from "./components/Std_Import";
+import Attendance from "./components/Attendance";
 
 // Define dummy components
 const DashboardComponent = () => <div><h2>Dashboard Component</h2><p>This is the  content.</p></div>;
 const GeneralComponent = () => <div><h2>General Component</h2><p>This is the General content under Students.</p></div>;
-const AttendanceComponent = () => <div><h2>Attendance Component</h2><p>This is the Attendance content under Students.</p></div>;
 const StudentsComponent = () => <div><h2>Students Main Component</h2><p>This is the main Students content.</p></div>;
 const ConfigureComponent = () => <div><h2>Configure Main Component</h2><p>This is the main Configure content.</p></div>;
 
@@ -55,7 +55,7 @@ export default function Layout() {
         { name: "Section", icon: BookIcon, component:stdSection },
         { name: "Import Data", icon: ImportIcon, component:Std_Import },
 
-        { name: "Attendance", icon: AdjustmentsHorizontalIcon, component: AttendanceComponent },
+        { name: "Attendance", icon: AdjustmentsHorizontalIcon, component: Attendance },
       ],
     },
     {

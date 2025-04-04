@@ -18,6 +18,7 @@ export interface Student {
   section: string;
   parentId: string; // Parent Document ID
   stdEmail: string;
+  absent?: string[];
   $collectionId: string;
   $databaseId: string;
   $permissions: string[];

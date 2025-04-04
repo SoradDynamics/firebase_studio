@@ -116,13 +116,13 @@ const Popover: React.FC<PopoverProps> = ({
             Cancel
           </Button>
           <Button
-            color="danger"
+            color="success"
             size="md"
             onPress={onConfirm}
-            className="w-full sm:w-auto" // Stack on mobile
+            className="w-full sm:w-auto text-white font-medium" // Stack on mobile
             isLoading={isConfirmLoading} // Show loading state on confirm button
             isDisabled={isConfirmLoading} // Disable confirm while loading
-            startContent={!isConfirmLoading ? <TrashIcon className="h-5 w-5" /> : undefined} // Show icon only when not loading
+            // startContent={!isConfirmLoading ? <TrashIcon className="h-5 w-5" /> : undefined} // Show icon only when not loading
           >
             {isConfirmLoading ? 'Confirming...' : 'Confirm'}
           </Button>

@@ -32,6 +32,7 @@ export interface TableProps<T extends DataItem> {
   rowClassName?: string | ((item: T, isSelected: boolean) => string);
   cellClassName?: string;
   headerCellClassName?: string;
+    onRowClick?: (item: T) => void; // Add the onRowClick prop
 }
 
 export const Table = <T extends DataItem>({
@@ -52,20 +53,24 @@ export const Table = <T extends DataItem>({
   rowClassName,
   cellClassName = 'px-4 py-2 text-sm text-gray-700 whitespace-nowrap',
   headerCellClassName = 'px-4 py-3 text-left text-sm font-semibold text-gray-600 uppercase tracking-wide',
+    onRowClick, // Destructure onRowClick from props
 }: TableProps<T>) => {
-  const handleRowClick = useCallback((item: T) => {
-    if (selectionMode === 'none' || !onSelectionChange) return;
-    const key = getRowKey(item);
-    const newSelectedKeys = new Set(selectedKeys);
-
-    if (selectionMode === 'single') {
-      newSelectedKeys.clear();
-      newSelectedKeys.add(key);
-    } else {
-      newSelectedKeys.has(key) ? newSelectedKeys.delete(key) : newSelectedKeys.add(key);
+  const handleRowClickInternal = useCallback((item: T) => {
+    if (onRowClick) {
+      onRowClick(item); // Call the provided onRowClick
     }
-    onSelectionChange(newSelectedKeys);
-  }, [selectionMode, selectedKeys, onSelectionChange, getRowKey]);
+      if (selectionMode === 'none' || !onSelectionChange) return;
+      const key = getRowKey(item);
+      const newSelectedKeys = new Set(selectedKeys);
+
+      if (selectionMode === 'single') {
+          newSelectedKeys.clear();
+          newSelectedKeys.add(key);
+      } else {
+          newSelectedKeys.has(key) ? newSelectedKeys.delete(key) : newSelectedKeys.add(key);
+      }
+      onSelectionChange(newSelectedKeys);
+  }, [onRowClick, selectionMode, selectedKeys, onSelectionChange, getRowKey]);
 
   const getAlignmentClass = (align?: 'left' | 'center' | 'right') => {
     return align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
@@ -104,7 +109,7 @@ export const Table = <T extends DataItem>({
             const dynamicRowClassName = typeof rowClassName === 'function' ? rowClassName(item, isSelected) : rowClassName;
 
             return (
-              <tr key={key} onClick={() => handleRowClick(item)} className={
+              <tr key={key} onClick={() => handleRowClickInternal(item)} className={
                 `cursor-pointer transition-colors duration-200 borde border-gray-300
                 ${isSelected ? 'bg-blue-100' : 'hover:bg-gray-200'}
                 ${dynamicRowClassName || ''}`
@@ -121,7 +126,7 @@ export const Table = <T extends DataItem>({
         )}
       </tbody>
     </table>
-  ), [columns, data, getRowKey, isLoading, emptyContent, renderCell, selectionMode, selectedKeys, tableClassName, headerClassName, bodyClassName, rowClassName, cellClassName, headerCellClassName, handleRowClick, getAlignmentClass]);
+  ), [columns, data, getRowKey, isLoading, emptyContent, renderCell, selectionMode, selectedKeys, tableClassName, headerClassName, bodyClassName, rowClassName, cellClassName, headerCellClassName, handleRowClickInternal, getAlignmentClass]);
 
   const useVerticalScroll = !!maxHeight;
 
