@@ -1,7 +1,7 @@
 // app/routes/__layout.tsx
 import { Outlet } from "@remix-run/react";
 import Sidebar from "components/common/Sidebar";
-import Navbar from "components/common/Navbar"; // Import Navbar
+import Navbar from "./Navbar"; // Import Navbar
 import { useState, useEffect } from "react";
 import {
   HomeIcon,

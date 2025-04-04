@@ -1,32 +1,35 @@
 // app/components/Navbar.tsx
 import { Bars3Icon } from "@heroicons/react/24/outline";
-import SearchBar from "../pages/admin/SearchBar";
+import SearchBar from "./SearchBar";
 import {
   Dropdown,
   DropdownTrigger,
   DropdownMenu,
   DropdownSection,
   DropdownItem,
-  Avatar, AvatarIcon
+  Avatar,
+  AvatarIcon,
 } from "@heroui/react";
 import { IoMdLogOut } from "react-icons/io";
 import { useNavigate } from "@remix-run/react";
 import { toast, Toaster } from "react-hot-toast";
 import { account } from "~/utils/appwrite";
+import { Select, SelectItem } from "@heroui/react"; // Import Select
+import { useStudentData } from "./StudentContext"; // Import the hook
 
 interface NavbarProps {
   toggleSidebar: () => void;
-  setActiveItem: (item: string) => void; // Add setActiveItem prop
+  setActiveItem: (item: string) => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, setActiveItem }) => {
-
   const navigate = useNavigate();
+  const { studentOptions, selectedStudentId, handleStudentChange } =
+    useStudentData(); // Use the context
 
   const handleLogout = async () => {
     try {
       await account.deleteSession("current");
-      // setUser(null);
       toast.success("Logged out successfully!");
       window.location.reload();
     } catch (error: any) {
@@ -34,8 +37,11 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, setActiveItem }) => {
     }
   };
 
+  const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    handleStudentChange(event.target.value); // Call the context's handler
+  };
+
   return (
-    // <nav className=" pr-4 m-2 mt-3 justify-between  items-center">
     <nav className="flex flex-row m-3 gap-6 items-center justify-between pr-2 rounded">
       <button
         onClick={toggleSidebar}
@@ -43,12 +49,8 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, setActiveItem }) => {
       >
         <Bars3Icon className="w-6 h-6" />
       </button>
-      {/* Search Bar */}
       <SearchBar setActiveItem={setActiveItem} />
-      {/* Pass setActiveItem to SearchBar */}
 
-
-      {/* Profile Dropdown */}
       <div className="flex items-center">
         <Dropdown placement="bottom-start" backdrop="opaque">
           <DropdownTrigger>
@@ -68,7 +70,29 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, setActiveItem }) => {
             <DropdownSection showDivider>
               <DropdownItem key="profile" className="h-14 gap-2">
                 <p className="font-medium">User name</p>
-                <p className="font-semibold text-gray-400">Admin</p>
+                <p className="font-semibold text-gray-400"></p>
+              </DropdownItem>
+            </DropdownSection>
+
+            <DropdownSection>
+              <DropdownItem key="logout" className="h-14 gap-2">
+
+              {/* Student Select Dropdown */}
+              {studentOptions && studentOptions.length > 0 && (
+                <Select
+                className="max-w-xs"
+                variant="underlined"
+                items={studentOptions}
+                label="Select Student"
+                // placeholder="Select a student"
+                onChange={handleChange}
+                value={selectedStudentId ?? ""}
+                >
+                  {(student) => (
+                    <SelectItem key={student.id}>{student.name}</SelectItem>
+                  )}
+                </Select>
+              )}
               </DropdownItem>
             </DropdownSection>
             <DropdownSection title={"Actions"}>
