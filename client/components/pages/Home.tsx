@@ -5,6 +5,7 @@ import { useMediaQuery } from "react-responsive";
 import Admin from "./admin/Admin";
 import Student from "./student/Student";
 import Parent from "./parent/Parent";
+import {ParentNotification} from "./parent/components/Notification";
 export default function Home({
   user,
   setUser,
@@ -30,7 +31,7 @@ export default function Home({
       <Toaster position="top-right" />
 
       {/* 🔹 Show this div only for Parent users */}
-      {user.isParent && <div><Parent/></div>}
+      {user.isParent && <div><ParentNotification/></div>}
 
       {/* 🔹 Show this div only for Student users */}
       {user.isStudent && <div><Student/></div>}

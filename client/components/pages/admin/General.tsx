@@ -11,9 +11,10 @@ import Student from './components/Student';
 import stdSection from './components/stdSection';
 import Calender from './components/Calendar';
 import Std_Import from './components/Std_Import';
+import Navbar from './Navbar';
 
 const AttendanceComponent = () => <div><h2>Attendance Component</h2><p>This is the Attendance content under Students.</p></div>;
-const Profile = () => <div><h2>Profile Component</h2><p>This is the Profile content under working.</p></div>;
+const Profile = () => <div><h2>Profile Component</h2><p>This is the Profile content under working.</p><Navbar/></div>;
 
 
 interface GeneralComponentProps {

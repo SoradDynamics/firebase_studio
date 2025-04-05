@@ -266,7 +266,7 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
        />
 
       {/* --- Edit Modal (Remains Unchanged) --- */}
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} scrollBehavior="inside" size="lg" backdrop="blur">
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange} scrollBehavior="inside" size="lg" backdrop="blur" placement="top">
         <ModalContent>
           {(onCloseModal) => (
             <>

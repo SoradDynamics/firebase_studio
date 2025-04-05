@@ -1,35 +1,125 @@
-import type { MetaFunction } from "@remix-run/node";
+import React, { useEffect, useRef, useState } from 'react';
+import * as faceapi from 'face-api.js';
 
-export const meta: MetaFunction = () => {
-  return [{ title: "Test Layout" }];
-};
+interface FaceBox {
+  id: number;
+  box: faceapi.Box;
+  timestamp: number;
+  color: string;
+}
 
-export default function TestLayout() {
+let faceIdCounter = 0;
+
+const FaceDetection: React.FC = () => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const faceBoxesRef = useRef<FaceBox[]>([]);
+
+  // Load model
+  useEffect(() => {
+    const loadModels = async () => {
+      await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+      setIsModelLoaded(true);
+    };
+    loadModels();
+  }, []);
+
+  // Start camera
+  useEffect(() => {
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error('Camera error:', err);
+      }
+    };
+    startCamera();
+  }, []);
+
+  // Detection logic
+  useEffect(() => {
+    if (!isModelLoaded || !videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    const detectFaces = async () => {
+      const displaySize = {
+        width: video.videoWidth,
+        height: video.videoHeight,
+      };
+      canvas.width = displaySize.width;
+      canvas.height = displaySize.height;
+
+      const detections = await faceapi.detectAllFaces(
+        video,
+        new faceapi.TinyFaceDetectorOptions()
+      );
+      const resized = faceapi.resizeResults(detections, displaySize);
+      const now = Date.now();
+
+      // Match faces with existing ones
+      const updated: FaceBox[] = resized.map((det) => {
+        const match = faceBoxesRef.current.find((f) => {
+          const dx = Math.abs(f.box.x - det.box.x);
+          const dy = Math.abs(f.box.y - det.box.y);
+          return dx < 30 && dy < 30;
+        });
+
+        if (match) {
+          // Update box but keep timestamp
+          return {
+            ...match,
+            box: det.box,
+            color: now - match.timestamp > 500 ? 'green' : 'red',
+          };
+        } else {
+          return {
+            id: faceIdCounter++,
+            box: det.box,
+            timestamp: now,
+            color: 'red',
+          };
+        }
+      });
+
+      faceBoxesRef.current = updated;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      faceBoxesRef.current.forEach(({ box, color }) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(box.x, box.y, box.width, box.height);
+      });
+    };
+
+    const interval = setInterval(detectFaces, 100);
+    return () => clearInterval(interval);
+  }, [isModelLoaded]);
+
   return (
-    <div className="h-screen flex flex-col p-4 bg-gray-100">
-      {/* Top Div (Remaining Area) with Scrollbar */}
-      <div className="flex-1 bg-white rounded-md shadow-md p-4 space-y-2 overflow-auto">
-        <h2 className="text-xl font-semibold">Top Content Area</h2>
-        <p className="text-gray-700">
-          This div takes up the remaining vertical space. It has padding, rounded
-          corners, and a subtle shadow for a professional look. It's also
-          responsive and will grow or shrink with the viewport.
-        </p>
-        <p className="text-gray-700">
-          To demonstrate overflow, here is some extra content. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-        </p>
-        {/* Add your top content here */}
-      </div>
-
-      {/* Bottom Div (Fixed 20px Height - Now Customizable) with Scrollbar */}
-      <div className="h-[90px]  bg-blue-500 text-white rounded-md shadow-md p-2 flex items-center justify-center mt-4 overflow-auto">
-        <p className="text-sm">Bottom Fixed Height Area (20px - Adjustable)</p>
-        <p className="text-sm ml-2">
-          More content to show scrollbar. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-        </p>
-        {/* Add your bottom content here */}
-      </div>
+    <div className="relative w-full max-w-xl mx-auto">
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        className="rounded-md w-full h-auto"
+        onLoadedMetadata={() => videoRef.current?.play()}
+      />
+      <canvas
+        ref={canvasRef}
+        className="absolute top-0 left-0 w-full h-full pointer-events-none"
+      />
     </div>
   );
-}
+};
+
+export default FaceDetection;

@@ -9,6 +9,7 @@ const calendarRoutes = require('./routes/calendarRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const HOST = '0.0.0.0'; // IMPORTANT
 
 // --- Middleware ---
 app.use(cors()); 
@@ -27,8 +28,10 @@ app.use((err, req, res, next) => {
 });
 
 // --- Start Server ---
-app.listen(PORT, () => {
+app.listen(PORT,HOST, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Server running at http://${HOST}:${PORT}`);
+
 
   if (!process.env.APPWRITE_ENDPOINT || !process.env.APPWRITE_PROJECT_ID || !process.env.APPWRITE_API_KEY) {
       console.warn("WARN: Check Appwrite environment variables in .env!");

@@ -581,7 +581,7 @@ const List: React.FC<ListProps> = ({
       />
 
       {/* --- Add Student Modal --- */}
-      <Modal isOpen={isAddModalOpen} onOpenChange={onAddModalOpenChange} scrollBehavior="inside" size="xl">
+      <Modal isOpen={isAddModalOpen} onOpenChange={onAddModalOpenChange} scrollBehavior="inside" size="xl" placement="top">
         <ModalContent>
           {(onCloseModal) => (
             <>

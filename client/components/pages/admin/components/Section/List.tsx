@@ -318,7 +318,7 @@ const List: React.FC<ListProps> = ({
         isFacultyLoading={isFacultyLoading}
       />
 
-      <Modal isOpen={isAddModalOpen} onOpenChange={onAddModalOpenChange}>
+      <Modal isOpen={isAddModalOpen} onOpenChange={onAddModalOpenChange} placement="top">
         <ModalContent>
           {(onCloseModal) => (
             <>

@@ -6,6 +6,7 @@ import { Button } from "@heroui/react";
 import Popover from "../common/Popover";
 import { useAbsentStore } from "~/store/absentStore"; // Import the new store
 
+
 interface DetailsProps {
     studentIds: string[];
     onBack?: () => void;

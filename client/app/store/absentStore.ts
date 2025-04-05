@@ -1,6 +1,15 @@
 // ~/store/absentStore.ts
 import { create } from "zustand";
-import { Student, StudentUpdateData } from "./studentStore";
+import { Student } from "./studentStore";
+
+export interface StudentUpdateData {
+    name?: string;
+    class?: string;
+    facultyId?: string;
+    section?: string;
+    parentId?: string;
+    absent?: string[]; // Added the absent property
+}
 
 interface AbsentState {
     markAbsent: (

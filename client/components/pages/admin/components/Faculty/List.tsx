@@ -162,7 +162,7 @@ const List: React.FC<ListProps> = ({ isMobile, onFacultySelect, facultyData, isL
         isOpen={isAddModalOpen}
         onOpenChange={onAddModalOpenChange}
         // size="md"
-        // placement="center"
+        placement="center"
       >
         <ModalContent>
           {(onCloseModal) => (

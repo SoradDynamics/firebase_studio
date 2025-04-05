@@ -319,7 +319,7 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
       />
 
       {/* Edit Section Modal */}
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange} placement="top">
         <ModalContent>
           {(onCloseModal) => (
             <>

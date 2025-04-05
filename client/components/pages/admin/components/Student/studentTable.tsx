@@ -343,7 +343,7 @@ const StudentTableRoute: React.FC<StudentTableRouteProps> = ({
 
       {/* --- Edit Student Modal --- */}
       {/* Modal remains unchanged */}
-      <Modal isOpen={isEditModalOpen} onOpenChange={onEditModalOpenChange} scrollBehavior="inside" size="xl" backdrop="blur">
+      <Modal isOpen={isEditModalOpen} onOpenChange={onEditModalOpenChange} scrollBehavior="inside" size="xl" backdrop="blur" placement="top">
         <ModalContent>
           {(onCloseModal) => (
             <>

@@ -1,8 +1,12 @@
 import React from 'react'
-
+import { StudentNotification } from './Notify'
 const Student = () => {
   return (
-    <div>Student</div>
+    <div>
+kkkk
+<StudentNotification></StudentNotification>
+
+    </div>
   )
 }
 
