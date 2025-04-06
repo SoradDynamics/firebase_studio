@@ -8,6 +8,7 @@ import Parent from "./parent/Parent";
 import {ParentNotification} from "./parent/components/Notification";
 import DriverLocation from "./driver/DriverLocation";
 import StudentComponent from "./student/StudentComponent1";
+import DriverComponent from "./driver/DriverLocation";
 export default function Home({
   user,
   setUser,
@@ -37,7 +38,7 @@ export default function Home({
 
       {/* 🔹 Show this div only for Student users */}
       {user.isStudent && <div><Student/></div>}
-      {user.isDriver && <div><DriverLocation/></div>}
+      {user.isDriver && <div><DriverComponent/></div>}
 
       {/* 🔹 Show this div only for Admin users */}
       {user.isAdmin && 
