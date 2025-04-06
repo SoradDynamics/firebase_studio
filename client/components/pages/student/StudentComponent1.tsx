@@ -1,6 +1,6 @@
 // student/StudentComponent.tsx
 
-import React, { useEffect, useState } from "react"; // Correct import
+import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { databases } from "~/utils/appwrite"; // Assuming you're using Appwrite SDK
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";

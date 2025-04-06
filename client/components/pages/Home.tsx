@@ -6,6 +6,8 @@ import Admin from "./admin/Admin";
 import Student from "./student/Student";
 import Parent from "./parent/Parent";
 import {ParentNotification} from "./parent/components/Notification";
+import DriverLocation from "./driver/DriverLocation";
+import StudentComponent from "./student/StudentComponent1";
 export default function Home({
   user,
   setUser,
@@ -31,10 +33,11 @@ export default function Home({
       <Toaster position="top-right" />
 
       {/* 🔹 Show this div only for Parent users */}
-      {user.isParent && <div><ParentNotification/></div>}
+      {user.isParent && <div><Parent/></div>}
 
       {/* 🔹 Show this div only for Student users */}
       {user.isStudent && <div><Student/></div>}
+      {user.isDriver && <div><DriverLocation/></div>}
 
       {/* 🔹 Show this div only for Admin users */}
       {user.isAdmin && 

@@ -3,7 +3,8 @@ import { useMediaQuery } from "react-responsive";
 
 import Parent_Mobile from "./Mobile";
 import Layout from "./Layout"; // Import Layout directly
-import { ParentNotification } from "./components/Notification";
+import { NotificationProvider } from "./context/NotificationContext";
+// import { ParentNotification } from "./components/Notification";
 
 const Parent = () => {
   const isDesk = useMediaQuery({ minWidth: 767 });
@@ -12,11 +13,14 @@ const Parent = () => {
     <>
       {isDesk ? (
         <div>
-          <ParentNotification /> {/* Use Layout directly */}
+          <NotificationProvider>
+
+          <Layout /> {/* Use Layout directly */}
+          </NotificationProvider>
         </div>
       ) : (
         <div>
-          <Parent_Mobile />
+          {/* <Parent_Mobile /> */}
         </div>
       )}
     </>
