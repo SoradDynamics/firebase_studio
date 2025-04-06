@@ -72,6 +72,7 @@ const DriverComponent: React.FC = () => {
     const [status, setStatus] = useState<string>("Initializing...");
     const [allLocations, setAllLocations] = useState<LocationData[]>([]); // For map & list (map needs numbers)
     const [driverColors, setDriverColors] = useState<{ [id: string]: string }>({}); // State for colors {docId: color}
+    const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
 
     // Refs for managing side effects and DOM interaction
     const watchIdRef = useRef<number | null>(null); // Geolocation watch ID
@@ -471,6 +472,7 @@ const DriverComponent: React.FC = () => {
                                          // Highlight the current logged-in driver in the list
                                          driver.id === driverDocId ? 'bg-blue-50 border-l-4 border-blue-500 font-medium' : ''
                                      }`}
+                                     onClick={() => setSelectedDriverId(driver.id)}
                                  >
                                      {/* Use inline DriverIconList definition */}
                                      <div className="flex-shrink-0">
@@ -505,7 +507,7 @@ const DriverComponent: React.FC = () => {
                     <LazyMapDisplay
                         locations={allLocations}
                         colors={driverColors}
-                        currentDriverId={driverDocId || undefined} // Highlight self on map
+                        currentDriverId={selectedDriverId || undefined} // Highlight self on map
                         fitBounds={true} // Zoom map to fit markers initially
                     />
                 </Suspense>
