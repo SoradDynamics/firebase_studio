@@ -12,7 +12,9 @@ import { BookIcon, CalendarIcon, ImportIcon, UserIcon, UsersIcon } from 'compone
 // import Calender from './components/Calendar';
 // import Std_Import from './components/Std_Import';
 import Profile from './components/Profile';
-import {StudentNotifications} from './components/Notification';
+import StudentComponent from './components/StudentComponent';
+// import {StudentNotifications} from './components/Notification';
+
 const AttendanceComponent = () => <div><h2>Attendance Component</h2><p>This is the Attendance content under Students.</p></div>;
 
 
@@ -77,7 +79,9 @@ const GeneralComponent: React.FC<GeneralComponentProps> = ({ initialMenuItem }) 
                 },
                 // { name: 'Calendar', icon: <CalendarIcon className="h-5 w-5" />, component: Calender, onClick: () => {} },
                 { name: 'Profile', icon: <UserIcon className="h-5 w-5" />, component: Profile, onClick: () => {} },
-                { name: 'Notification', icon: <UserIcon className="h-5 w-5" />, component: StudentNotifications, onClick: () => {} },
+                { name: 'Bus', icon: <UserIcon className="h-5 w-5" />, component: StudentComponent, onClick: () => {} },
+
+                // { name: 'Notification', icon: <UserIcon className="h-5 w-5" />, component: StudentNotifications, onClick: () => {} },
 
             ],
         },

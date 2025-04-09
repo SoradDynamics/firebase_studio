@@ -3,14 +3,26 @@ import React, { useState, useEffect, useRef, useCallback, lazy, Suspense, useMem
 import client, { databases, account } from '~/utils/appwrite';
 import { LocationData } from '../../driver/MapDisplay';
 import { Models } from 'appwrite';
+import { FaChevronUp, FaChevronDown } from 'react-icons/fa';  // Import icons
 
 // --- Define DriverIcon directly inside StudentComponent (for the List) ---
 interface DriverIconProps { color?: string; size?: number | string; className?: string; }
 const DriverIconList: React.FC<DriverIconProps> = ({ color = 'currentColor', size = 24, className = '' }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke={color} style={{ width: size, height: size }} className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-    </svg>
+    <svg
+  xmlns="http://www.w3.org/2000/svg"
+  fill={color}
+  stroke="black"
+  strokeWidth="0.3"
+  viewBox="0 0 24 24"
+  style={{ width: size, height: size }}
+  className={className}
+>
+  <path
+    fillRule="evenodd"
+    d="M12 2.25c-4.28 0-7.75 3.47-7.75 7.75 0 6.21 7.17 11.27 7.48 11.47a.75.75 0 0 0 .54.03c.31-.1 7.48-5.26 7.48-11.5 0-4.28-3.47-7.75-7.75-7.75Zm0 10.5a2.75 2.75 0 1 1 0-5.5 2.75 2.75 0 0 1 0 5.5Z"
+    clipRule="evenodd"
+  />
+</svg>
 );
 
 // --- Define generateColorFromId directly inside StudentComponent ---
@@ -48,6 +60,9 @@ const StudentComponent: React.FC = () => {
     const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
     const [studentEmail, setStudentEmail] = useState<string | null>(null);
     const [studentLocationId, setStudentLocationId] = useState<string | null>(null);
+
+    // NEW STATE: Controls the driver list panel visibility on small screens
+    const [isDriverListExpanded, setIsDriverListExpanded] = useState(true); // Start expanded by default.
 
     const updateDriverColors = useCallback((locations: LocationData[]) => {
         setDriverColors(prevColors => {
@@ -216,20 +231,38 @@ const StudentComponent: React.FC = () => {
         }
     };
 
+    const panelHeight = isDriverListExpanded ? 'h-84' : 'h-24'; // Define collapsed/expanded heights
+
     return (
-        <div className="flex flex-col md:flex-row h-screen bg-gray-100">
+        <div className="flex flex-col md:flex-row h-full bg-gray-100">
             {/* Driver List Panel */}
-            <div className="w-full md:w-72 lg:w-80 p-3 bg-gray-50 border-r border-gray-200 overflow-y-auto flex-shrink-0 shadow-md md:shadow-none">
+            <div className={`
+                w-full md:w-72 lg:w-80  bg-gray-50 border-r border-gray-200 flex-shrink-0 shadow-md md:shadow-none
+                transition-height duration-300 ease-in-out overflow-hidden sm:pr-2
+                ${panelHeight} /* Set the height dynamically */
+            `}>
                 {/* Header section */}
-                <div className="p-3 bg-green-100 border border-green-200 shadow-sm mb-4 rounded-md">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-1">Student View</h2>
-                    {studentEmail && <p className="text-xs text-gray-600 break-words">Student Email: {studentEmail}</p>}
-                    {studentLocationId && <p className="text-xs text-gray-500 mt-1">Student Location Id: <span className="font-mono text-xs">{studentLocationId}</span></p>}
-                    <p className="text-sm mt-1">Status: <span className={`font-semibold ${error ? 'text-red-600' : status.includes('Error') ? 'text-red-600' : status.includes('enabled') ? 'text-green-600' : 'text-blue-600'}`}>{status}</span></p>
-                    {error && <p className="text-red-700 bg-red-100 p-2 rounded text-xs mt-2 border border-red-200">Error: {error}</p>}
-                    {/* <button onClick={zoomToStudentLocation} className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700 focus:outline-none focus:shadow-outline text-sm">
-                        Zoom to My Location
-                    </button> */}
+                <div className="p-3 bg-green-100 border border-green-200 shadow-sm mb-4 rounded-md flex items-center justify-between">  {/* Flex container */}
+                    <div>
+                        <h2 className="text-lg font-semibold text-gray-800 mb-1">Student View</h2>
+                        {studentEmail && <p className="text-xs text-gray-600 break-words">Student Email: {studentEmail}</p>}
+                        {studentLocationId && <p className="text-xs text-gray-500 mt-1">Student Location Id: <span className="font-mono text-xs">{studentLocationId}</span></p>}
+                        <p className="text-sm mt-1">Status: <span className={`font-semibold ${error ? 'text-red-600' : status.includes('Error') ? 'text-red-600' : status.includes('enabled') ? 'text-green-600' : 'text-blue-600'}`}>{status}</span></p>
+                        {error && <p className="text-red-700 bg-red-100 p-2 rounded text-xs mt-2 border border-red-200">Error: {error}</p>}
+                    </div>
+
+                    {/* Toggle Button */}
+                    <button
+                        className="p-2 rounded-full sm:hidden hover:bg-gray-300 focus:outline-none"  /* Circular button */
+                        onClick={() => setIsDriverListExpanded(!isDriverListExpanded)}
+                        aria-label={isDriverListExpanded ? 'Collapse Driver List' : 'Expand Driver List'} //Accessibility
+                    >
+                        {isDriverListExpanded ? (
+                            <FaChevronUp className="text-gray-700" />
+                        ) : (
+                            <FaChevronDown className="text-gray-700" />
+                        )}
+                    </button>
                 </div>
 
                 {/* Driver List Section */}
@@ -246,7 +279,7 @@ const StudentComponent: React.FC = () => {
                                     onClick={() => setSelectedDriverId(driver.id)}
                                 >
                                     <div className="flex-shrink-0">
-                                        <DriverIconList color={driverColors[driver.id] || 'gray'} size={20} />
+                                        <DriverIconList color={driverColors[driver.id] || 'gray'} size={30} />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-gray-900 truncate" title={driver.driverName}>
@@ -266,7 +299,7 @@ const StudentComponent: React.FC = () => {
             </div>
 
             {/* Map Area */}
-            <div className="flex-grow bg-gray-300 relative">
+            <div className="flex-grow bg-gray-300 relative mt-3">
                 <Suspense fallback={<MapLoadingFallback />}>
                     <LazyMapDisplay
                         locations={locations}

@@ -20,7 +20,7 @@ const Student = () => {
         </div>
       ) : (
         <div>
-          {/* <Student_Mobile /> */}
+          <Student_Mobile />
         </div>
       )}
     </>
