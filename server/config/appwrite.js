@@ -1,29 +1,32 @@
 // config/appwrite.js
-const { Client, Users, ID, Storage } = require('node-appwrite');
-
+const { Client, Users, ID, Storage, Databases, AppwriteException } = require('node-appwrite'); // Added Databases and AppwriteException
 const dotenv = require('dotenv');
 dotenv.config();
 
 // --- Appwrite Client Initialization ---
 const client = new Client()
-    .setEndpoint(process.env.APPWRITE_ENDPOINT || 'DEFAULT_ENDPOINT') // Provide defaults or throw error if missing
-    .setProject(process.env.APPWRITE_PROJECT_ID || 'DEFAULT_PROJECT_ID')
-    .setKey(process.env.APPWRITE_API_KEY || 'DEFAULT_API_KEY'); // Use API Key for backend admin operations
+    .setEndpoint(process.env.APPWRITE_ENDPOINT) // Use directly, error check below
+    .setProject(process.env.APPWRITE_PROJECT_ID)
+    .setKey(process.env.APPWRITE_API_KEY);
 
-// Basic check for essential env vars
+// --- Environment Variable Check ---
 if (!process.env.APPWRITE_ENDPOINT || !process.env.APPWRITE_PROJECT_ID || !process.env.APPWRITE_API_KEY) {
-    console.error('Error: Missing required Appwrite environment variables in .env file.');
+    console.error('FATAL ERROR: Missing required Appwrite environment variables in .env file.');
+    console.error('Required: APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_API_KEY');
     process.exit(1); // Exit if configuration is incomplete
 }
 
 // --- Appwrite Service Initialization ---
 const users = new Users(client);
 const storage = new Storage(client);
+const databases = new Databases(client); // Initialize Databases if needed elsewhere
 
-// Export Appwrite services and unique ID generator
+// --- Export Appwrite services ---
 module.exports = {
     client,
     users,
-    ID, // Export ID for use in controllers
-    storage
+    ID, // Export ID helper
+    storage,
+    databases, // Export if needed
+    AppwriteException // Export for specific error handling
 };

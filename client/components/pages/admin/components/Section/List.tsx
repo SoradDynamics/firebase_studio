@@ -5,11 +5,6 @@ import { TbReload, TbRotateRectangle } from "react-icons/tb";
 import {
   useDisclosure,
   Button,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   Input,
   Autocomplete,
   AutocompleteItem,
@@ -22,6 +17,7 @@ import ErrorMessage from "../common/ErrorMessage";
 import SearchBar from "../common/SearchBar";
 import ActionButton from "../common/ActionButton";
 import SectionTableRoute from "./sectionTable";
+import { Drawer } from "components/common/Drawer"; // Import Drawer component
 import { ExclamationTriangleIcon } from "@heroicons/react/24/solid";
 import { FaSave } from "react-icons/fa";
 
@@ -48,11 +44,12 @@ const List: React.FC<ListProps> = ({
 
   const [errorMessage, setErrorMessage] = useState<string | null>("");
 
+  // Use disclosure for drawer
   const {
-    isOpen: isAddModalOpen,
-    onOpen: onAddModalOpen,
-    onOpenChange: onAddModalOpenChange,
-    onClose: onAddModalClose,
+    isOpen: isAddDrawerOpen, // Renamed for clarity
+    onOpen: onAddDrawerOpen,  // Renamed for clarity
+    onOpenChange: onAddDrawerOpenChange, // Renamed for clarity
+    onClose: onAddDrawerClose,  // Renamed for clarity
   } = useDisclosure();
   const [newSectionName, setNewSectionName] = useState("");
   const [newSectionSubjects, setNewSectionSubjects] = useState("");
@@ -110,7 +107,7 @@ const List: React.FC<ListProps> = ({
   }, [facultyFilter, selectedFacultyId, facultyData]);
 
   const handleAdd = () => {
-    onAddModalOpen();
+    onAddDrawerOpen(); // Open the drawer
   };
 
   const handleRefresh = () => {
@@ -158,7 +155,7 @@ const List: React.FC<ListProps> = ({
 
     try {
       await addSectionData(newSectionData);
-      onAddModalClose();
+      onAddDrawerClose(); // Close the drawer
       setNewSectionName("");
       setNewSectionSubjects("");
       setNewSectionClass("");
@@ -318,171 +315,172 @@ const List: React.FC<ListProps> = ({
         isFacultyLoading={isFacultyLoading}
       />
 
-      <Modal isOpen={isAddModalOpen} onOpenChange={onAddModalOpenChange} placement="top">
-        <ModalContent>
-          {(onCloseModal) => (
-            <>
-              <ModalBody className="py-4">
-                <div className="flex flex-col gap-2 px-4">
-                  <h1 className=" text-xl font-semibold my-2">
-                    Add New Section
-                  </h1>
-                  {addError && (
-                    <div
-                      className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
-                      role="alert"
-                    >
-                      <strong className="font-bold">Error!</strong>
-                      <span className="block sm:inline">{addError}</span>
-                      <span className="absolute top-0 bottom-0 right-0 px-4 py-3">
-                        <ExclamationTriangleIcon
-                          className="h-5 w-5 text-red-500"
-                          aria-hidden="true"
-                        />
-                      </span>
-                    </div>
-                  )}
-                  {/* Faculty Select Autocomplete in Add Modal */}
-                  <Autocomplete
-                    label="Faculty"
-                    color="secondary"
-                    variant="underlined"
-                    size="sm"
-                    className="font-medium"
-                    isRequired
-                    selectedKey={selectedFacultyId}
-                    onSelectionChange={(key) => {
-                      setSelectedFacultyId(key ? key.toString() : "");
-                      setNewSectionClass("");
-                      setAddError(null);
-                      setFilteredAddModalClassItems([]); // Clear class items when faculty changes
-                    }}
-                    errorMessage={
-                      addError && !selectedFacultyId
-                        ? "Faculty is required"
-                        : ""
-                    }
-                    isInvalid={!!(addError && !selectedFacultyId)}
-                    items={filteredAddModalFacultyItems}
-                    onInputChange={(value) => {
-                      const filtered = facultyData
-                        .filter((faculty) =>
-                          faculty.name
-                            .toLowerCase()
-                            .includes(value.toLowerCase())
-                        )
-                        .map((faculty) => ({
-                          key: faculty.$id,
-                          label: faculty.name,
-                        }));
-                      setFilteredAddModalFacultyItems(filtered);
-                    }}
-                  >
-                    {(item) => (
-                      <AutocompleteItem key={item.key}>
-                        {item.label}
-                      </AutocompleteItem>
-                    )}
-                  </Autocomplete>
-
-                  {/* Class Select Autocomplete in Add Modal */}
-                  <Autocomplete
-                    label="Class"
-                    color="secondary"
-                    variant="underlined"
-                    size="sm"
-                    className="font-medium"
-                    isRequired
-                    selectedKey={newSectionClass}
-                    onSelectionChange={(key) => {
-                      setNewSectionClass(key ? key.toString() : "");
-                      setAddError(null);
-                    }}
-                    disabled={!selectedFacultyId}
-                    errorMessage={
-                      addError && !newSectionClass ? "Class is required" : ""
-                    }
-                    isInvalid={!!(addError && !newSectionClass)}
-                    items={filteredAddModalClassItems}
-                    onInputChange={(value) => {
-                      const allClassesForSelectedFaculty = selectedFacultyId
-                        ? facultyData.find((f) => f.$id === selectedFacultyId)
-                            ?.classes ?? []
-                        : [];
-                      const filteredClasses = allClassesForSelectedFaculty
-                        .filter((cls) =>
-                          cls.toLowerCase().includes(value.toLowerCase())
-                        )
-                        .map((cls) => ({ key: cls, label: cls }));
-                      setFilteredAddModalClassItems(filteredClasses);
-                    }}
-                  >
-                    {(item) => (
-                      <AutocompleteItem key={item.key}>
-                        {item.label}
-                      </AutocompleteItem>
-                    )}
-                  </Autocomplete>
-
-                  <Input
-                    id="add-section-name"
-                    type="text"
-                    label="Section Name"
-                    variant="underlined"
-                    value={newSectionName}
-                    isRequired
-                    color="secondary"
-                    className="font-medium"
-                    onChange={(e) => {
-                      setNewSectionName(e.target.value);
-                      setAddError(null);
-                    }}
-                    errorMessage={
-                      addError && !newSectionName
-                        ? "Section Name is required"
-                        : ""
-                    }
-                    isInvalid={!!(addError && !newSectionName)}
+      {/* Add Section Drawer */}
+      <Drawer
+        isOpen={isAddDrawerOpen}
+        onClose={onAddDrawerClose}
+        position="right"
+        size="md"
+        nonDismissable={true}
+      >
+        <Drawer.Header showCloseButton={true}>
+          Add New Section
+        </Drawer.Header>
+        <Drawer.Body>
+          <div className="flex flex-col gap-2 px-4">
+            {addError && (
+              <div
+                className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+                role="alert"
+              >
+                <strong className="font-bold">Error!</strong>
+                <span className="block sm:inline">{addError}</span>
+                <span className="absolute top-0 bottom-0 right-0 px-4 py-3">
+                  <ExclamationTriangleIcon
+                    className="h-5 w-5 text-red-500"
+                    aria-hidden="true"
                   />
+                </span>
+              </div>
+            )}
+            {/* Faculty Select Autocomplete in Add Modal */}
+            <Autocomplete
+              label="Faculty"
+              color="secondary"
+              variant="underlined"
+              size="sm"
+              className="font-medium"
+              isRequired
+              selectedKey={selectedFacultyId}
+              onSelectionChange={(key) => {
+                setSelectedFacultyId(key ? key.toString() : "");
+                setNewSectionClass("");
+                setAddError(null);
+                setFilteredAddModalClassItems([]); // Clear class items when faculty changes
+              }}
+              errorMessage={
+                addError && !selectedFacultyId
+                  ? "Faculty is required"
+                  : ""
+              }
+              isInvalid={!!(addError && !selectedFacultyId)}
+              items={filteredAddModalFacultyItems}
+              onInputChange={(value) => {
+                const filtered = facultyData
+                  .filter((faculty) =>
+                    faculty.name
+                      .toLowerCase()
+                      .includes(value.toLowerCase())
+                  )
+                  .map((faculty) => ({
+                    key: faculty.$id,
+                    label: faculty.name,
+                  }));
+                setFilteredAddModalFacultyItems(filtered);
+              }}
+            >
+              {(item) => (
+                <AutocompleteItem key={item.key}>
+                  {item.label}
+                </AutocompleteItem>
+              )}
+            </Autocomplete>
 
-                  <Input
-                    id="add-section-subjects"
-                    type="text"
-                    variant="underlined"
-                    label="Subjects (comma-separated)"
-                    value={newSectionSubjects}
-                    isRequired
-                    color="secondary"
-                    className="font-medium"
-                    onChange={(e) => {
-                      setNewSectionSubjects(e.target.value);
-                      setAddError(null);
-                    }}
-                    errorMessage={
-                      addError && !newSectionSubjects
-                        ? "Subjects are required"
-                        : ""
-                    }
-                    isInvalid={!!(addError && !newSectionSubjects)}
-                  />
-                </div>
-              </ModalBody>
-              <ModalFooter className=" px-10 mb-1">
-                <Button color="danger" variant="light" onPress={onCloseModal}>
-                  Cancel
-                </Button>
-                <Button
-                  color="success"
-                  onPress={handleAddSaveNewSection}
-                  className=" text-white font-medium"
-                >
-                  Save
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+            {/* Class Select Autocomplete in Add Modal */}
+            <Autocomplete
+              label="Class"
+              color="secondary"
+              variant="underlined"
+              size="sm"
+              className="font-medium"
+              isRequired
+              selectedKey={newSectionClass}
+              onSelectionChange={(key) => {
+                setNewSectionClass(key ? key.toString() : "");
+                setAddError(null);
+              }}
+              disabled={!selectedFacultyId}
+              errorMessage={
+                addError && !newSectionClass ? "Class is required" : ""
+              }
+              isInvalid={!!(addError && !newSectionClass)}
+              items={filteredAddModalClassItems}
+              onInputChange={(value) => {
+                const allClassesForSelectedFaculty = selectedFacultyId
+                  ? facultyData.find((f) => f.$id === selectedFacultyId)
+                      ?.classes ?? []
+                  : [];
+                const filteredClasses = allClassesForSelectedFaculty
+                  .filter((cls) =>
+                    cls.toLowerCase().includes(value.toLowerCase())
+                  )
+                  .map((cls) => ({ key: cls, label: cls }));
+                setFilteredAddModalClassItems(filteredClasses);
+              }}
+            >
+              {(item) => (
+                <AutocompleteItem key={item.key}>
+                  {item.label}
+                </AutocompleteItem>
+              )}
+            </Autocomplete>
+
+            <Input
+              id="add-section-name"
+              type="text"
+              label="Section Name"
+              variant="underlined"
+              value={newSectionName}
+              isRequired
+              color="secondary"
+              className="font-medium"
+              onChange={(e) => {
+                setNewSectionName(e.target.value);
+                setAddError(null);
+              }}
+              errorMessage={
+                addError && !newSectionName
+                  ? "Section Name is required"
+                  : ""
+              }
+              isInvalid={!!(addError && !newSectionName)}
+            />
+
+            <Input
+              id="add-section-subjects"
+              type="text"
+              variant="underlined"
+              label="Subjects (comma-separated)"
+              value={newSectionSubjects}
+              isRequired
+              color="secondary"
+              className="font-medium"
+              onChange={(e) => {
+                setNewSectionSubjects(e.target.value);
+                setAddError(null);
+              }}
+              errorMessage={
+                addError && !newSectionSubjects
+                  ? "Subjects are required"
+                  : ""
+              }
+              isInvalid={!!(addError && !newSectionSubjects)}
+            />
+          </div>
+        </Drawer.Body>
+        <Drawer.Footer>
+          <Button color="danger" variant="light" onPress={onAddDrawerClose}>
+            Cancel
+          </Button>
+          <Button
+            color="success"
+            onPress={handleAddSaveNewSection}
+            className=" text-white font-medium"
+          >
+            Save
+          </Button>
+        </Drawer.Footer>
+      </Drawer>
     </div>
   );
 };

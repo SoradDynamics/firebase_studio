@@ -14,11 +14,6 @@ import {
   Selection,
   Tooltip,
   Button,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   useDisclosure,
   Input,
   Autocomplete,
@@ -26,6 +21,7 @@ import {
 } from "@heroui/react";
 import { TrashIcon, PencilIcon } from "@heroicons/react/24/solid";
 import Popover from "../common/Popover";
+import { Drawer } from "components/common/Drawer"; // Import the Drawer component
 import { ExclamationTriangleIcon } from "@heroicons/react/24/solid";
 import PerfectScrollbar from "react-perfect-scrollbar";
 
@@ -49,7 +45,7 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
   const { updateSectionData, deleteSectionData, fetchSectionData } =
     useSectionStore();
   const { fetchFacultyData } = useFacultyStore();
-  const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
+  const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure(); // Disclosure for Drawer
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [editName, setEditName] = useState("");
   const [editSubjects, setEditSubjects] = useState("");
@@ -98,7 +94,7 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
     setEditClass(section.class);
     setEditFacultyId(section.facultyId || "");
     setEditError(null);
-    onOpen();
+    onOpen(); // Open the drawer
   };
 
   const handleSave = async () => {
@@ -136,7 +132,7 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
 
     try {
       await updateSectionData(updatedSectionData);
-      onClose();
+      onClose(); // Close the drawer
       setSelectedKeys(new Set([]));
       onSectionSelect(null);
     } catch (updateError: any) {
@@ -315,161 +311,162 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
             ? `Are you sure you want to delete section: ${sectionToDelete.name}?`
             : ""
         }
-        position="top"
       />
 
-      {/* Edit Section Modal */}
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} placement="top">
-        <ModalContent>
-          {(onCloseModal) => (
-            <>
-              <ModalBody className=" my-2">
-                <div className="flex flex-col gap-3 px-4">
-                  <h1 className=" text-xl font-semibold my-2">Edit Section</h1>
+      {/* Edit Section Drawer */}
+      <Drawer
+        isOpen={isOpen}
+        onClose={onClose}
+        position="right"
+        size="md"
+        nonDismissable={true}
+      >
+        <Drawer.Header showCloseButton={true}>
+          Edit Section
+        </Drawer.Header>
+        <Drawer.Body>
+          <div className="flex flex-col gap-3 px-4">
 
-                  {editError && (
-                    <div
-                      className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
-                      role="alert"
-                    >
-                      <strong className="font-bold">Error!</strong>
-                      <span className="block sm:inline">{editError}</span>
-                      <span className="absolute top-0 bottom-0 right-0 px-4 py-3">
-                        <ExclamationTriangleIcon
-                          className="h-5 w-5 text-red-500"
-                          aria-hidden="true"
-                        />
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Faculty Select Autocomplete in Edit Modal */}
-                  <Autocomplete
-                    label="Faculty"
-                    color="secondary"
-                    variant="underlined"
-                    size="sm"
-                    className="font-medium"
-                    isRequired
-                    selectedKey={editFacultyId}
-                    onSelectionChange={(key) => {
-                      setEditFacultyId(key ? key.toString() : "");
-                      setEditClass("");
-                      setEditError(null);
-                      setFilteredEditModalClassItems([]); // Clear class items when faculty changes
-                    }}
-                    items={filteredEditModalFacultyItems}
-                    onInputChange={(value) => {
-                      const filtered = facultyData
-                        .filter((faculty) =>
-                          faculty.name
-                            .toLowerCase()
-                            .includes(value.toLowerCase())
-                        )
-                        .map((faculty) => ({
-                          key: faculty.$id,
-                          label: faculty.name,
-                        }));
-                      setFilteredEditModalFacultyItems(filtered);
-                    }}
-                  >
-                    {(item) => (
-                      <AutocompleteItem key={item.key}>
-                        {item.label}
-                      </AutocompleteItem>
-                    )}
-                  </Autocomplete>
-
-                  {/* Class Select Autocomplete in Edit Modal */}
-                  <Autocomplete
-                    label="Class"
-                    color="secondary"
-                    variant="underlined"
-                    size="sm"
-                    className="font-medium"
-                    isRequired
-                    selectedKey={editClass}
-                    onSelectionChange={(key) => {
-                      setEditClass(key ? key.toString() : "");
-                      setEditError(null);
-                    }}
-                    disabled={!editFacultyId}
-                    items={filteredEditModalClassItems}
-                    onInputChange={(value) => {
-                      const allClassesForSelectedFaculty = editFacultyId
-                        ? facultyData.find((f) => f.$id === editFacultyId)
-                            ?.classes ?? []
-                        : [];
-                      const filteredClasses = allClassesForSelectedFaculty
-                        .filter((cls) =>
-                          cls.toLowerCase().includes(value.toLowerCase())
-                        )
-                        .map((cls) => ({ key: cls, label: cls }));
-                      setFilteredEditModalClassItems(filteredClasses);
-                    }}
-                  >
-                    {(item) => (
-                      <AutocompleteItem key={item.key}>
-                        {item.label}
-                      </AutocompleteItem>
-                    )}
-                  </Autocomplete>
-
-                  <Input
-                    id="section-name"
-                    type="text"
-                    color="secondary"
-                    label="Name"
-                    variant="underlined"
-                    value={editName}
-                    className="font-medium"
-                    isRequired
-                    onChange={(e) => {
-                      setEditName(e.target.value);
-                      setEditError(null);
-                    }}
-                    errorMessage={
-                      editError && !editName ? "Section Name is required" : ""
-                    }
-                    isInvalid={!!(editError && !editName)}
+            {editError && (
+              <div
+                className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+                role="alert"
+              >
+                <strong className="font-bold">Error!</strong>
+                <span className="block sm:inline">{editError}</span>
+                <span className="absolute top-0 bottom-0 right-0 px-4 py-3">
+                  <ExclamationTriangleIcon
+                    className="h-5 w-5 text-red-500"
+                    aria-hidden="true"
                   />
+                </span>
+              </div>
+            )}
 
-                  <Input
-                    id="section-subjects"
-                    type="text"
-                    color="secondary"
-                    label="Subjects (comma-separated)"
-                    variant="underlined"
-                    value={editSubjects}
-                    className="font-medium"
-                    isRequired
-                    onChange={(e) => {
-                      setEditSubjects(e.target.value);
-                      setEditError(null);
-                    }}
-                    errorMessage={
-                      editError && !editSubjects ? "Subjects are required" : ""
-                    }
-                    isInvalid={!!(editError && !editSubjects)}
-                  />
-                </div>
-              </ModalBody>
-              <ModalFooter className=" px-10 mb-1">
-                <Button color="danger" variant="light" onPress={onCloseModal}>
-                  Close
-                </Button>
-                <Button
-                  color="success"
-                  onPress={handleSave}
-                  className="text-white font-medium"
-                >
-                  Save
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+            {/* Faculty Select Autocomplete in Edit Modal */}
+            <Autocomplete
+              label="Faculty"
+              color="secondary"
+              variant="underlined"
+              size="sm"
+              className="font-medium"
+              isRequired
+              selectedKey={editFacultyId}
+              onSelectionChange={(key) => {
+                setEditFacultyId(key ? key.toString() : "");
+                setEditClass("");
+                setEditError(null);
+                setFilteredEditModalClassItems([]); // Clear class items when faculty changes
+              }}
+              items={filteredEditModalFacultyItems}
+              onInputChange={(value) => {
+                const filtered = facultyData
+                  .filter((faculty) =>
+                    faculty.name
+                      .toLowerCase()
+                      .includes(value.toLowerCase())
+                  )
+                  .map((faculty) => ({
+                    key: faculty.$id,
+                    label: faculty.name,
+                  }));
+                setFilteredEditModalFacultyItems(filtered);
+              }}
+            >
+              {(item) => (
+                <AutocompleteItem key={item.key}>
+                  {item.label}
+                </AutocompleteItem>
+              )}
+            </Autocomplete>
+
+            {/* Class Select Autocomplete in Edit Modal */}
+            <Autocomplete
+              label="Class"
+              color="secondary"
+              variant="underlined"
+              size="sm"
+              className="font-medium"
+              isRequired
+              selectedKey={editClass}
+              onSelectionChange={(key) => {
+                setEditClass(key ? key.toString() : "");
+                setEditError(null);
+              }}
+              disabled={!editFacultyId}
+              items={filteredEditModalClassItems}
+              onInputChange={(value) => {
+                const allClassesForSelectedFaculty = editFacultyId
+                  ? facultyData.find((f) => f.$id === editFacultyId)
+                      ?.classes ?? []
+                  : [];
+                const filteredClasses = allClassesForSelectedFaculty
+                  .filter((cls) =>
+                    cls.toLowerCase().includes(value.toLowerCase())
+                  )
+                  .map((cls) => ({ key: cls, label: cls }));
+                setFilteredEditModalClassItems(filteredClasses);
+              }}
+            >
+              {(item) => (
+                <AutocompleteItem key={item.key}>
+                  {item.label}
+                </AutocompleteItem>
+              )}
+            </Autocomplete>
+
+            <Input
+              id="section-name"
+              type="text"
+              color="secondary"
+              label="Name"
+              variant="underlined"
+              value={editName}
+              className="font-medium"
+              isRequired
+              onChange={(e) => {
+                setEditName(e.target.value);
+                setEditError(null);
+              }}
+              errorMessage={
+                editError && !editName ? "Section Name is required" : ""
+              }
+              isInvalid={!!(editError && !editName)}
+            />
+
+            <Input
+              id="section-subjects"
+              type="text"
+              color="secondary"
+              label="Subjects (comma-separated)"
+              variant="underlined"
+              value={editSubjects}
+              className="font-medium"
+              isRequired
+              onChange={(e) => {
+                setEditSubjects(e.target.value);
+                setEditError(null);
+              }}
+              errorMessage={
+                editError && !editSubjects ? "Subjects are required" : ""
+              }
+              isInvalid={!!(editError && !editSubjects)}
+            />
+          </div>
+        </Drawer.Body>
+        <Drawer.Footer>
+          <Button color="danger" variant="light" onPress={onClose}>
+            Close
+          </Button>
+          <Button
+            color="success"
+            onPress={handleSave}
+            className="text-white font-medium"
+          >
+            Save
+          </Button>
+        </Drawer.Footer>
+      </Drawer>
     </div>
   );
 };

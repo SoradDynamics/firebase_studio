@@ -15,14 +15,10 @@ import {
 import {
   Tooltip,
   Button,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   useDisclosure,
   Input,
 } from "@heroui/react";
+import { Drawer } from "components/common/Drawer";
 import { TrashIcon, PencilIcon } from "@heroicons/react/24/solid";
 import Popover from "../common/Popover";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/solid";
@@ -294,86 +290,81 @@ const FacultyTableRoute: React.FC<FacultyTableRouteProps> = ({
             ? `Are you sure you want to delete faculty member: ${facultyToDelete.name}?`
             : ""
         }
-        position="top"
+        // position="top"
       />
 
-      {/* Edit Faculty Modal */}
-      <Modal
+      {/* Edit Faculty Drawer */}
+      <Drawer
         isOpen={isOpen}
-        onOpenChange={onOpenChange}
+        onClose={onClose}
+        position="right"
+        size="md"
+        nonDismissable={true}
       >
-        <ModalContent>
-          {(onCloseModal) => (
-            <>
-              {/* <ModalHeader className="flex justify-center text-xl">Edit Faculty</ModalHeader> */}
-              <ModalBody className=" my-2">
-                <div className="flex flex-col gap-2 px-4">
-                  <h1 className=" text-xl font-semibold my-2">
-                    Edit Faculty
-                  </h1>
-
-                  {editError && (
-                    <div
-                      className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
-                      role="alert"
-                    >
-                      <strong className="font-bold">Error!</strong>
-                      <span className="block sm:inline">{editError}</span>
-                      <span className="absolute top-0 bottom-0 right-0 px-4 py-3">
-                        <ExclamationTriangleIcon
-                          className="h-5 w-5 text-red-500"
-                          aria-hidden="true"
-                        />
-                      </span>
-                    </div>
-                  )}
-                  <Input
-                    id="faculty-name"
-                    type="text"
-                    color="secondary"
-                    label="Name"
-                    variant="underlined"
-                    value={editName}
-                    className="font-medium"
-                    isRequired
-                    // placeholder="Enter faculty name"
-                    onChange={(e) => {
-                      setEditName(e.target.value);
-                      setEditError(null); // Clear error on input change
-                    }}
+        <Drawer.Header showCloseButton={true}>
+          Edit Faculty
+        </Drawer.Header>
+        <Drawer.Body>
+          <div className="flex flex-col gap-4">
+            {editError && (
+              <div
+                className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+                role="alert"
+              >
+                <strong className="font-bold">Error!</strong>
+                <span className="block sm:inline">{editError}</span>
+                <span className="absolute top-0 bottom-0 right-0 px-4 py-3">
+                  <ExclamationTriangleIcon
+                    className="h-5 w-5 text-red-500"
+                    aria-hidden="true"
                   />
+                </span>
+              </div>
+            )}
+            <Input
+              id="faculty-name"
+              type="text"
+              color="secondary"
+              label="Name"
+              variant="underlined"
+              value={editName}
+              className="font-medium"
+              isRequired
+              onChange={(e) => {
+                setEditName(e.target.value);
+                setEditError(null); // Clear error on input change
+              }}
+            />
 
-                  <Input
-                    id="faculty-classes"
-                    type="text"
-                    color="secondary"
-                    label="Classes (comma-separated)"
-                    variant="underlined"
-                    value={editClasses}
-                    className="font-medium"
-                    isRequired
-                    // placeholder="e.g., Math, Science, English"
-                    onChange={(e) => {
-                      setEditClasses(e.target.value);
-                      setEditError(null); // Clear error on input change
-                    }}
-                  />
-                </div>
-              </ModalBody>
-              <ModalFooter className=" px-10 mb-1">
-                <Button color="danger" variant="light" onPress={onCloseModal}>
-                  Close
-                </Button>
-                <Button color="success" onPress={handleSave}
-                className="text-white font-medium"
-                >
-                  Save
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+            <Input
+              id="faculty-classes"
+              type="text"
+              color="secondary"
+              label="Classes (comma-separated)"
+              variant="underlined"
+              value={editClasses}
+              className="font-medium"
+              isRequired
+              onChange={(e) => {
+                setEditClasses(e.target.value);
+                setEditError(null); // Clear error on input change
+              }}
+            />
+          </div>
+        </Drawer.Body>
+        <Drawer.Footer>
+          <Button color="danger" variant="light" onPress={onClose}>
+            Close
+          </Button>
+          <Button
+            color="success"
+            onPress={handleSave}
+            className="text-white font-medium"
+          >
+            Save
+          </Button>
+        </Drawer.Footer>
+      </Drawer>
     </div>
   );
 };

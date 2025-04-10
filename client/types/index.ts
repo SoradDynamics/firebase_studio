@@ -37,3 +37,17 @@ export interface Parent {
   contact: string[];
   students: string[];
 }
+
+export interface Driver {
+  $id: string;
+  $createdAt: string;
+  $updatedAt: string;
+  driverId: string;
+  driverName: string;
+  route: string;
+  latitude?: number;
+  longitude?: number;
+  timestamp?: string;
+  email: string;
+  authUserId?: string | null;
+}

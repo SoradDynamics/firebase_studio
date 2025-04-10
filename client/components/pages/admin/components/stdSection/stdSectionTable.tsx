@@ -8,17 +8,13 @@ import {
   Spinner,
   Tooltip,
   Button,
-  Modal,
-  ModalContent,
-  ModalHeader, // Added ModalHeader back if needed, otherwise remove
-  ModalBody,
-  ModalFooter,
   useDisclosure,
   Autocomplete,
   AutocompleteItem,
   Progress,
 } from "@heroui/react";
 import { PencilIcon, ExclamationTriangleIcon } from "@heroicons/react/24/solid";
+import { Drawer } from "components/common/Drawer"; // Import Drawer component
 
 // --- Custom Component Imports ---
 import Table, { ColumnDef } from '../common/Table'; // Import custom Table and ColumnDef
@@ -59,7 +55,12 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
   const { fetchSectionData } = useSectionStore();
 
   // --- Modal State ---
-  const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
+  const {
+    isOpen: isEditDrawerOpen,  // Renamed for clarity
+    onOpen: onEditDrawerOpen,  // Renamed for clarity
+    onOpenChange: onEditDrawerOpenChange, // Renamed for clarity
+    onClose: onEditDrawerClose,  // Renamed for clarity
+  } = useDisclosure();
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [editClass, setEditClass] = useState("");
   const [editSection, setEditSection] = useState("");
@@ -124,8 +125,8 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
           .map((section) => ({ key: section.name, label: section.name }))
         : []
     );
-    onOpen();
-  }, [facultyData, sectionData, onOpen]); // Dependencies remain the same
+    onEditDrawerOpen();
+  }, [facultyData, sectionData, onEditDrawerOpen]); // Dependencies remain the same
 
   const handleSave = useCallback(async () => {
     if (!editingStudent) return;
@@ -145,7 +146,7 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
     };
     try {
       await updateStudentData(editingStudent.$id, updatedStudentFields);
-      onClose();
+      onEditDrawerClose();
       setSelectedKeys(new Set([])); // Clear selection after save
       onStudentSelect(null); // Notify parent component
       // Optionally re-fetch data if needed, though Zustand might handle this reactively
@@ -157,7 +158,7 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
     } finally {
       setIsSavingEdit(false);
     }
-  }, [editingStudent, editClass, editSection, editFacultyId, updateStudentData, onClose, onStudentSelect]); // Dependencies remain the same
+  }, [editingStudent, editClass, editSection, editFacultyId, updateStudentData, onEditDrawerClose, onStudentSelect]); // Dependencies remain the same
 
   // --- Selection Handling ---
   const handleSelectionChange = useCallback((keys: Set<React.Key>) => {
@@ -242,7 +243,7 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
 
   // --- Component Render ---
   return (
-    <div className="mt-4 flow-root md:px-0 lg:px-8">
+    <div className="mt-4 flow-root ">
        {/* --- Use Custom Table Component --- */}
        <Table<Student>
           columns={columns}
@@ -266,85 +267,88 @@ const SectionTableRoute: React.FC<SectionTableRouteProps> = ({
        />
 
       {/* --- Edit Modal (Remains Unchanged) --- */}
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} scrollBehavior="inside" size="lg" backdrop="blur" placement="top">
-        <ModalContent>
-          {(onCloseModal) => (
-            <>
-             {isSavingEdit && <Progress size="sm" isIndeterminate aria-label="Saving..." className="absolute top-0 left-0 w-full z-50 rounded-t-lg" />}
-              <ModalBody className=" my-2">
-                <div className="flex flex-col gap-3 px-4">
-                  <h1 className=" text-xl font-semibold my-2">Edit Class & Section</h1>
-                  {editError && (
-                     <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-2 text-sm flex items-center gap-2" role="alert">
-                       <ExclamationTriangleIcon className="h-5 w-5 text-red-700 flex-shrink-0" />
-                       <span>{editError}</span>
-                    </div>
-                  )}
-                  <p className="font-semibold text-gray-700">Student Name: <span className="font-normal text-black">{editingStudent?.name}</span></p>
-                  {/* Faculty Autocomplete */}
-                   <Autocomplete
-                    label="Faculty" color="secondary" variant="underlined" size="sm" className="font-medium"
-                    isRequired selectedKey={editFacultyId} isDisabled={isSavingEdit}
-                    onSelectionChange={(key) => {
-                        const newFacultyId = key ? String(key) : "";
-                        setEditFacultyId(newFacultyId);
-                        setEditClass(""); // Reset class on faculty change
-                        setEditSection(""); // Reset section on faculty change
-                        setFilteredEditModalSectionItems([]); // Clear section items
-                        setEditError(null);
-                    }}
-                    errorMessage={editError && !editFacultyId ? "Faculty is required" : ""} isInvalid={!!(editError && !editFacultyId)}
-                    items={filteredEditModalFacultyItems} aria-label="Select Faculty" allowsCustomValue={false} placeholder="Choose a faculty"
-                    onInputChange={(value) => {
-                        const filtered = facultyData.filter(f => f.name.toLowerCase().includes(value.toLowerCase())).map(f => ({ key: f.$id, label: f.name }));
-                        setFilteredEditModalFacultyItems(filtered.length > 0 ? filtered : facultyData.map(f => ({ key: f.$id, label: f.name }))); // Show all if filter clears
-                    }}
-                  >{(item) => <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>}</Autocomplete>
-                  {/* Class Autocomplete */}
-                   <Autocomplete
-                    label="Class" color="secondary" variant="underlined" size="sm" className="font-medium"
-                    isRequired selectedKey={editClass} isDisabled={!editFacultyId || isSavingEdit}
-                    onSelectionChange={(key) => {
-                        const newClass = key ? String(key) : "";
-                        setEditClass(newClass);
-                        setEditSection(""); // Reset section on class change
-                        setFilteredEditModalSectionItems([]); // Clear section items
-                        setEditError(null);
-                    }}
-                    errorMessage={editError && !editClass ? "Class is required" : ""} isInvalid={!!(editError && !editClass)}
-                    items={filteredEditModalClassItems} aria-label="Select Class" allowsCustomValue={false} placeholder="Choose a class"
-                    onInputChange={(value) => {
-                        const currentClasses = editFacultyId ? facultyData.find(f => f.$id === editFacultyId)?.classes ?? [] : [];
-                        const filtered = currentClasses.filter(cls => cls.toLowerCase().includes(value.toLowerCase())).map(cls => ({ key: cls, label: cls }));
-                        setFilteredEditModalClassItems(filtered.length > 0 ? filtered : currentClasses.map(cls => ({ key: cls, label: cls }))); // Show all matching faculty if filter clears
-                    }}
-                  >{(item) => <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>}</Autocomplete>
-                  {/* Section Autocomplete */}
-                   <Autocomplete
-                    label="Section" color="secondary" variant="underlined" size="sm" className="font-medium"
-                    isRequired selectedKey={editSection} isDisabled={!editClass || !editFacultyId || isSavingEdit}
-                    onSelectionChange={(key) => {
-                        setEditSection(key ? String(key) : "");
-                        setEditError(null);
-                    }}
-                    errorMessage={editError && !editSection ? "Section is required" : ""} isInvalid={!!(editError && !editSection)}
-                    items={filteredEditModalSectionItems} aria-label="Select Section" allowsCustomValue={false} placeholder="Choose a section"
-                    onInputChange={(value) => {
-                        const currentSections = (editFacultyId && editClass) ? sectionData.filter(s => s.facultyId === editFacultyId && s.class === editClass).map(s => s.name) : [];
-                        const filtered = currentSections.filter(sec => sec.toLowerCase().includes(value.toLowerCase())).map(sec => ({ key: sec, label: sec }));
-                        setFilteredEditModalSectionItems(filtered.length > 0 ? filtered : currentSections.map(sec => ({ key: sec, label: sec }))); // Show all matching faculty/class if filter clears
-                    }}
-                  >{(item) => <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>}</Autocomplete>
+      <Drawer
+        isOpen={isEditDrawerOpen}
+        onClose={onEditDrawerClose}
+        position="right"
+        size="lg"
+        nonDismissable={true}
+      >
+        <Drawer.Header showCloseButton={true}>
+           Edit Class & Section
+        </Drawer.Header>
+        <Drawer.Body>
+        {isSavingEdit && <Progress size="sm" isIndeterminate aria-label="Saving..." className="absolute top-0 left-0 w-full z-50 rounded-t-lg" />}
+        <div className="flex flex-col gap-3 px-4">
+            {/* <h1 className=" text-xl font-semibold my-2">Edit Class & Section</h1> */}
+            {editError && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-2 text-sm flex items-center gap-2" role="alert">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-red-700 flex-shrink-0" />
+                    <span>{editError}</span>
                 </div>
-              </ModalBody>
-              <ModalFooter className=" px-10 mb-1">
-                <Button color="danger" variant="light" onPress={onCloseModal} disabled={isSavingEdit}>Cancel</Button>
-                <Button color="success" onPress={handleSave} className="text-white font-medium" isLoading={isSavingEdit} disabled={isSavingEdit || !editFacultyId || !editClass || !editSection}> {isSavingEdit ? "Saving..." : "Save Changes"} </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+            )}
+            <p className="font-semibold text-gray-700">Student Name: <span className="font-normal text-black">{editingStudent?.name}</span></p>
+            {/* Faculty Autocomplete */}
+            <Autocomplete
+                label="Faculty" color="secondary" variant="underlined" size="sm" className="font-medium"
+                isRequired selectedKey={editFacultyId} isDisabled={isSavingEdit}
+                onSelectionChange={(key) => {
+                    const newFacultyId = key ? String(key) : "";
+                    setEditFacultyId(newFacultyId);
+                    setEditClass(""); // Reset class on faculty change
+                    setEditSection(""); // Reset section on faculty change
+                    setFilteredEditModalSectionItems([]); // Clear section items
+                    setEditError(null);
+                }}
+                errorMessage={editError && !editFacultyId ? "Faculty is required" : ""} isInvalid={!!(editError && !editFacultyId)}
+                items={filteredEditModalFacultyItems} aria-label="Select Faculty" allowsCustomValue={false} placeholder="Choose a faculty"
+                onInputChange={(value) => {
+                    const filtered = facultyData.filter(f => f.name.toLowerCase().includes(value.toLowerCase())).map(f => ({ key: f.$id, label: f.name }));
+                    setFilteredEditModalFacultyItems(filtered.length > 0 ? filtered : facultyData.map(f => ({ key: f.$id, label: f.name }))); // Show all if filter clears
+                }}
+            >{(item) => <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>}</Autocomplete>
+            {/* Class Autocomplete */}
+            <Autocomplete
+                label="Class" color="secondary" variant="underlined" size="sm" className="font-medium"
+                isRequired selectedKey={editClass} isDisabled={!editFacultyId || isSavingEdit}
+                onSelectionChange={(key) => {
+                    const newClass = key ? String(key) : "";
+                    setEditClass(newClass);
+                    setEditSection(""); // Reset section on class change
+                    setFilteredEditModalSectionItems([]); // Clear section items
+                    setEditError(null);
+                }}
+                errorMessage={editError && !editClass ? "Class is required" : ""} isInvalid={!!(editError && !editClass)}
+                items={filteredEditModalClassItems} aria-label="Select Class" allowsCustomValue={false} placeholder="Choose a class"
+                onInputChange={(value) => {
+                    const currentClasses = editFacultyId ? facultyData.find(f => f.$id === editFacultyId)?.classes ?? [] : [];
+                    const filtered = currentClasses.filter(cls => cls.toLowerCase().includes(value.toLowerCase())).map(cls => ({ key: cls, label: cls }));
+                    setFilteredEditModalClassItems(filtered.length > 0 ? filtered : currentClasses.map(cls => ({ key: cls, label: cls }))); // Show all matching faculty if filter clears
+                }}
+            >{(item) => <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>}</Autocomplete>
+            {/* Section Autocomplete */}
+            <Autocomplete
+                label="Section" color="secondary" variant="underlined" size="sm" className="font-medium"
+                isRequired selectedKey={editSection} isDisabled={!editClass || !editFacultyId || isSavingEdit}
+                onSelectionChange={(key) => {
+                    setEditSection(key ? String(key) : "");
+                    setEditError(null);
+                }}
+                errorMessage={editError && !editSection ? "Section is required" : ""} isInvalid={!!(editError && !editSection)}
+                items={filteredEditModalSectionItems} aria-label="Select Section" allowsCustomValue={false} placeholder="Choose a section"
+                onInputChange={(value) => {
+                    const currentSections = (editFacultyId && editClass) ? sectionData.filter(s => s.facultyId === editFacultyId && s.class === editClass).map(s => s.name) : [];
+                    const filtered = currentSections.filter(sec => sec.toLowerCase().includes(value.toLowerCase())).map(sec => ({ key: sec, label: sec }));
+                    setFilteredEditModalSectionItems(filtered.length > 0 ? filtered : currentSections.map(sec => ({ key: sec, label: sec }))); // Show all matching faculty/class if filter clears
+                }}
+            >{(item) => <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>}</Autocomplete>
+        </div>
+        </Drawer.Body>
+        <Drawer.Footer>
+            <Button color="danger" variant="light" onPress={onEditDrawerClose} disabled={isSavingEdit}>Cancel</Button>
+            <Button color="success" onPress={handleSave} className="text-white font-medium" isLoading={isSavingEdit} disabled={isSavingEdit || !editFacultyId || !editClass || !editSection}> {isSavingEdit ? "Saving..." : "Save Changes"} </Button>
+        </Drawer.Footer>
+      </Drawer>
     </div>
   );
 };

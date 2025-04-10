@@ -8,8 +8,8 @@ import React, {
   import { TbReload } from "react-icons/tb";
   import {
     Progress,
-      Select,
-      SelectItem
+    Autocomplete,
+    AutocompleteItem,
   } from "@heroui/react";
   
   import ErrorMessage from "../common/ErrorMessage";
@@ -19,210 +19,288 @@ import React, {
   import toast, { Toaster } from "react-hot-toast";
   import { useStudentStore } from "~/store/studentStore";
   import { useFacultyStore } from "~/store/facultyStore";
-  import { useSectionStore } from "~/store/sectionStore";
+  import { useSectionStore } from "~/store/sectionStore"; // Import section store
   import { useParentStore } from "~/store/parentStore";
-  import lodash from 'lodash';
-  const { debounce } = lodash;
-  
-  const searchOptions = [
-      { value: "name", label: "Name" },
-      { value: "class", label: "Class" },
-      { value: "section", label: "Section" },
-  ];
+  import { Section } from "types"; // Assuming Section type is available globally or adjust path
   
   interface ListProps {
-      isMobile: boolean;
-      onStudentsSelect: (studentIds: string[]) => void;
-      selectedStudents: string[];
+    isMobile: boolean;
+    onStudentsSelect: (studentIds: string[]) => void;
+    selectedStudents: string[];
   }
   
   const List: React.FC<ListProps> = ({
-      isMobile,
-      onStudentsSelect,
-      selectedStudents,
+    isMobile,
+    onStudentsSelect,
+    selectedStudents,
   }) => {
-      const [searchText, setSearchText] = useState<string>("");
-      const [errorMessage, setErrorMessage] = useState<string | null>(null);
-      const [selectedSearchOption, setSelectedSearchOption] = useState(searchOptions[0].value);
-      const { studentData, fetchStudentData, isLoading } = useStudentStore();
-      const { facultyData, fetchFacultyData } = useFacultyStore();
-      const { fetchSectionData } = useSectionStore(); // Fetch sections if needed by table/other components
-      const { fetchParentData } = useParentStore();
-      const handleSearchChange = (value: string) => {
-          setSearchText(value);
-      };
+    const [searchText, setSearchText] = useState<string>("");
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
-      const handleRefresh = () => {
-          setErrorMessage(null);
-          // Clear selected students before refreshing the data
-          onStudentsSelect([]); // Reset selected students
+    const { studentData, fetchStudentData, isLoading: isStudentLoading } = useStudentStore();
+    const { facultyData, fetchFacultyData, isFacultyLoading } = useFacultyStore();
+    const { sectionData, fetchSectionData, isLoading: isSectionLoading } = useSectionStore(); // Use section store
+    const { fetchParentData } = useParentStore();
   
-          const refreshPromise = Promise.all([
-              fetchStudentData(),
-              fetchParentData(),
-              fetchFacultyData(), // Optionally refresh faculty/section too
-              fetchSectionData(),
-          ]);
-          toast.promise(
-              refreshPromise,
-              {
-                  loading: 'Refreshing data...',
-                  success: 'Data refreshed!',
-                  error: (err) => {
-                      console.error("Refresh Error:", err)
-                      setErrorMessage("Failed to load initial data.")
-                      return 'Failed to refresh data.'; // Message for toast
-                  },
-              }
-          );
-      };
-      useEffect(() => {
-          Promise.all([fetchFacultyData(), fetchSectionData(), fetchParentData(), fetchStudentData()])
-              // .then(() => console.log("Initial data fetched."))
-              .catch(err => {
-                  console.error("Error during initial data fetch:", err);
-                  setErrorMessage("Failed to load initial data. Please refresh.");
-              });
-      }, [fetchFacultyData, fetchSectionData, fetchParentData, fetchStudentData]); // Dependencies for initial fetch
-      // Memoized Filtered Student Data for Table
-      const filteredStudentData = useMemo(() => {
+    // --- State for Filters ---
+    const [facultyFilter, setFacultyFilter] = useState<string>(""); // Selected Faculty ID
+    const [classFilter, setClassFilter] = useState<string>("");   // Selected Class Name
+    const [sectionFilter, setSectionFilter] = useState<string>(""); // Selected Section Name
+    const [filteredFacultyItems, setFilteredFacultyItems] = useState<{ key: string; label: string }[]>([]);
+    const [filteredClassItems, setFilteredClassItems] = useState<{ key: string; label: string }[]>([]);
+    const [filteredSectionItems, setFilteredSectionItems] = useState<{ key: string; label: string }[]>([]); // State for section options
+    // --- End State for Filters ---
   
-          // Use studentData from Zustand store as the source
-          const fullStudentData = studentData || []; // Use store data, fallback to empty array
+    // Combined loading state
+    const isLoading = isStudentLoading || isFacultyLoading || isSectionLoading;
   
-          if (searchText) {
-              // --- SEARCH IS ACTIVE: Filter the entire dataset ---
-              const lowerSearchText = searchText.toLowerCase();
-              // Keep the original filtering logic using the full dataset
-              return fullStudentData.filter((student) => {
-                  switch (selectedSearchOption) {
-                      case "name": return (student.name || '').toLowerCase().includes(lowerSearchText);
-                      case "class": return (student.class || '').toLowerCase().includes(lowerSearchText);
-                      case "section": return (student.section || '').toLowerCase().includes(lowerSearchText);
-                      default: return false; // Return false for no match to avoid showing all data
-                  }
-              });
-          } else {
-              // If no search text, don't show any data
-              return [];
-          }
-          // Dependencies for recalculation
-      }, [studentData, searchText, selectedSearchOption]);
+    const handleSearchChange = (value: string) => {
+      setSearchText(value);
+      // Clear selections if search text is entered while filters might be active
+      if (value) {
+          // Optional: Decide if you want to clear selections when typing in search
+          // onStudentsSelect([]);
+      }
+    };
   
+    const handleRefresh = () => {
+      setErrorMessage(null);
+      setSearchText("");
+      setFacultyFilter("");
+      setClassFilter("");
+      setSectionFilter(""); // Reset section filter
+      onStudentsSelect([]);
   
-      return (
-          <div className="md:w-full w-full md:p-2">
-              <Toaster position="top-right" />
-              {errorMessage && <ErrorMessage message={errorMessage} />}
+      const refreshPromise = Promise.all([
+        fetchStudentData(),
+        fetchParentData(),
+        fetchFacultyData(),
+        fetchSectionData(), // Fetch sections on refresh
+      ]);
+      toast.promise(
+        refreshPromise,
+        {
+          loading: 'Refreshing data...',
+          success: 'Data refreshed!',
+          error: (err) => {
+            console.error("Refresh Error:", err)
+            setErrorMessage("Failed to load initial data.")
+            return 'Failed to refresh data.';
+          },
+        }
+      );
+    };
   
-              <div className="top overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 transparent' }}>
-                  <div className="min-w-[370px] mt-1 mx-3 md:px-0 mb-1">
-                      {/* Desktop layout (single line) */}
-                      <div className="hidden sm:flex items-center justify-between gap-2">
-                          {/* Spacer to balance the layout */}
+    // Initial data fetch
+    useEffect(() => {
+      Promise.all([fetchFacultyData(), fetchSectionData(), fetchParentData(), fetchStudentData()])
+        .catch(err => {
+          console.error("Error during initial data fetch:", err);
+          setErrorMessage("Failed to load initial data. Please refresh.");
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Keep dependencies minimal for initial fetch
   
-                          {/* Search By Select */}
-                          <Select
-                              placeholder="Search By"
-                              className="max-w-[9rem] flex-shrink-0"
-                              variant="faded"
-                              size="md"
-                              selectedKeys={new Set([selectedSearchOption])}
-                              onSelectionChange={(keys) => {
-                                  const key = Array.from(keys)[0];
-                                  setSelectedSearchOption(key ? key.toString() : searchOptions[0].value);
-                              }}
-                              aria-label="Select search field"
-                          >
-                              {searchOptions.map((option) => (
-                                  <SelectItem key={option.value}>{option.label}</SelectItem>
-                              ))}
-                          </Select>
+    // --- Effects for Populating Autocomplete Filters ---
+    useEffect(() => {
+      // Populate faculty options
+      setFilteredFacultyItems(
+        facultyData.map((faculty) => ({ key: faculty.$id, label: faculty.name }))
+      );
+    }, [facultyData]);
   
-                          {/* Search Input */}
-                          {/* <div className="flex-grow min-w-[150px] max-w-[350px]"> */}
-                          <SearchBar
-                              placeholder="Search students..."
-                              value={searchText}
-                              onValueChange={handleSearchChange}
-                          />
-                          {/* </div> */}
+    useEffect(() => {
+      // Populate class options based on selected faculty
+      let classes: { key: string; label: string }[] = [];
+      if (facultyFilter) {
+        const selectedFaculty = facultyData.find((f) => f.$id === facultyFilter);
+        classes = (selectedFaculty?.classes ?? []).map((cls) => ({ key: cls, label: cls }));
+      }
+      setFilteredClassItems(classes);
+      // Also reset section filter and options when faculty changes
+      setSectionFilter("");
+      setFilteredSectionItems([]);
+    }, [facultyFilter, facultyData]);
   
-                          {/* Refresh Button */}
-                          <ActionButton
-                              icon={<TbReload className="w-5 h-5 text-gray-100 transition duration-200" />}
-                              onClick={handleRefresh}
-                              aria-label="Refresh Student List"
-                              // disabled={isRouteLoading}
-                          />
-                      </div>
+    useEffect(() => {
+      // Populate section options based on selected faculty AND class
+      let sections: { key: string; label: string }[] = [];
+      if (facultyFilter && classFilter && sectionData) {
+          sections = sectionData
+              .filter(sec => sec.facultyId === facultyFilter && sec.class === classFilter)
+              .map(sec => ({ key: sec.name, label: sec.name })); // Use section name as key and label for filtering studentData.section
+      }
+      setFilteredSectionItems(sections);
+      // No need to reset section filter here, as it's directly dependent
+    }, [facultyFilter, classFilter, sectionData]); // Add sectionData dependency
+    // --- End Effects for Autocomplete Filters ---
   
-                      {/* Mobile layout (two lines) */}
-                      <div className="sm:hidden flex flex-col gap-3">
-                          {/* First row: Add Button and Select (centered) */}
-                          <div className="flex items-center justify-between">
-                              {/* Spacer to balance the layout */}
+    // Memoized Filtered Student Data for Table
+    const filteredStudentData = useMemo(() => {
+      // **Requirement 2: Return empty array if no filters/search are active**
+      if (!facultyFilter && !classFilter && !sectionFilter && !searchText.trim()) {
+          return [];
+      }
   
-                              <div className="flex-grow flex justify-center">
-                                  <Select
-                                      placeholder="Search By"
-                                      className="w-40"
-                                      variant="faded"
-                                      size="md"
-                                      selectedKeys={new Set([selectedSearchOption])}
-                                      onSelectionChange={(keys) => {
-                                          const key = Array.from(keys)[0];
-                                          setSelectedSearchOption(key ? key.toString() : searchOptions[0].value);
-                                      }}
-                                      aria-label="Select search field"
-                                  >
-                                      {searchOptions.map((option) => (
-                                          <SelectItem key={option.value}>{option.label}</SelectItem>
-                                      ))}
-                                  </Select>
-                              </div>
+      const fullStudentData = studentData || [];
+      let filteredData = fullStudentData;
   
-                              <div className="w-8 flex-shrink-0"></div> {/* Spacer to balance the layout */}
-                          </div>
+      // Apply filters sequentially
+      if (facultyFilter) {
+        filteredData = filteredData.filter(
+          (student) => student.facultyId === facultyFilter
+        );
+      }
+      if (classFilter) {
+        filteredData = filteredData.filter(
+          (student) => student.class === classFilter
+        );
+      }
+      if (sectionFilter) {
+        // Filter by section NAME, as studentData likely has section name string
+        filteredData = filteredData.filter(
+          (student) => student.section === sectionFilter
+        );
+      }
   
-                          {/* Second row: Search Bar and Reload Button */}
-                          <div className="flex justify-between items-center gap-6">
-                              <div className="flex-grow">
-                                  <SearchBar
-                                      placeholder="Search students..."
-                                      value={searchText}
-                                      onValueChange={handleSearchChange}
-                                  />
-                              </div>
+      // Apply search text filter (on student name) *after* other filters
+      if (searchText.trim()) {
+        const lowerSearchText = searchText.toLowerCase().trim();
+        filteredData = filteredData.filter((student) =>
+          (student.name || '').toLowerCase().includes(lowerSearchText)
+        );
+      }
   
-                              <ActionButton
-                                  icon={<TbReload className="w-5 h-5 text-gray-100 transition duration-200" />}
-                                  onClick={handleRefresh}
-                                  aria-label="Refresh Student List"
-                                  // disabled={isRouteLoading}
-                              />
-                          </div>
-                      </div>
-                  </div>
+      return filteredData;
+  
+    }, [studentData, searchText, facultyFilter, classFilter, sectionFilter]); // Add sectionFilter dependency
+  
+    return (
+      <div className="md:w-full w-full md:p-2">
+        <Toaster position="top-right" />
+        {errorMessage && <ErrorMessage message={errorMessage} />}
+  
+        <div className="top overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#CBD5E1 transparent' }}>
+          <div className="min-w-[500px] md:min-w-fit mt-1 mx-3 md:px-0 mb-2"> {/* Increased min-width for more filters */}
+  
+            {/* Combined Desktop and Mobile Layout */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 flex-wrap"> {/* Added flex-wrap */}
+  
+              {/* Filters Section (Faculty, Class, Section) */}
+              <div className="flex flex-col sm:flex-row gap-2 flex-grow sm:flex-grow-0 min-w-[300px] sm:min-w-0"> {/* Adjust min-width */}
+                {/* Faculty Filter */}
+                <Autocomplete
+                  placeholder="Faculty"
+                  className="w-full sm:max-w-[10rem]" // Adjusted width
+                  variant="faded"
+                  size="md"
+                  selectedKey={facultyFilter}
+                  onSelectionChange={(key) => {
+                    const newFacultyId = key ? key.toString() : "";
+                    setFacultyFilter(newFacultyId);
+                    // Reset dependent filters and selection
+                    setClassFilter("");
+                    setSectionFilter("");
+                    onStudentsSelect([]);
+                  }}
+                  items={filteredFacultyItems}
+                  aria-label="Select Faculty Filter"
+                >
+                  {(item) => (
+                    <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>
+                  )}
+                </Autocomplete>
+  
+                {/* Class Filter */}
+                <Autocomplete
+                  placeholder="Class"
+                  className="w-full sm:max-w-[8rem]" // Adjusted width
+                  variant="faded"
+                  size="md"
+                  selectedKey={classFilter}
+                  onSelectionChange={(key) => {
+                    setClassFilter(key ? key.toString() : "");
+                    // Reset dependent filter and selection
+                    setSectionFilter("");
+                    onStudentsSelect([]);
+                  }}
+                  items={filteredClassItems}
+                  isDisabled={!facultyFilter || filteredClassItems.length === 0}
+                  aria-label="Select Class Filter"
+                >
+                  {(item) => (
+                    <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>
+                  )}
+                </Autocomplete>
+  
+                {/* Section Filter */}
+                <Autocomplete
+                  placeholder="Section"
+                  className="w-full sm:max-w-[8rem]" // Adjusted width
+                  variant="faded"
+                  size="md"
+                  selectedKey={sectionFilter} // Use sectionFilter (name)
+                  onSelectionChange={(key) => {
+                      setSectionFilter(key ? key.toString() : ""); // Store section name
+                      // Reset selection when section changes
+                      onStudentsSelect([]);
+                  }}
+                  items={filteredSectionItems} // Use filtered section items
+                  isDisabled={!facultyFilter || !classFilter || filteredSectionItems.length === 0} // Disable if faculty/class not selected or no sections
+                  aria-label="Select Section Filter"
+                >
+                  {(item) => (
+                    <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem> // Key and label are both section names
+                  )}
+                </Autocomplete>
               </div>
   
-              {isLoading && (
-                  <Progress
-                      size="sm"
-                      isIndeterminate
-                      aria-label="Loading students..."
-                      className="w-full my-2"
-                  />
-              )}
+               {/* Search and Refresh Section */}
+               <div className="flex items-center gap-2 mt-2 sm:mt-0 flex-grow w-full sm:w-auto"> {/* Ensure it takes space or shrinks appropriately */}
+                  {/* Search Input */}
+                  <div className="flex-grow min-w-[100px] sm:min-w-[150px] max-w-full sm:max-w-[250px]"> {/* Control max width */}
+                      <SearchBar
+                          placeholder="Search student name..."
+                          value={searchText}
+                          onValueChange={handleSearchChange}
+                        //   className="w-full"
+                      />
+                  </div>
   
-              <AttendanceTable
-                  studentData={filteredStudentData}
-                  isLoading={isLoading}
-                  onStudentsSelect={onStudentsSelect}
-                  selectedStudents={selectedStudents}
-              />
+                  {/* Refresh Button */}
+                  <ActionButton
+                      icon={<TbReload className="w-5 h-5 text-gray-100 transition duration-200" />}
+                      onClick={handleRefresh}
+                      aria-label="Refresh Data & Filters"
+                    //   className="flex-shrink-0" // Prevent button from shrinking too much
+                  />
+               </div>
+            </div>
           </div>
-      );
+        </div>
+  
+        {isLoading && (
+          <Progress
+            size="sm"
+            isIndeterminate
+            aria-label="Loading data..."
+            className="w-full my-2"
+          />
+        )}
+  
+        <AttendanceTable
+          studentData={filteredStudentData} // Pass the data filtered by all criteria
+          isLoading={isLoading}
+          onStudentsSelect={onStudentsSelect}
+          selectedStudents={selectedStudents}
+          // Pass a flag or modify emptyContent based on whether filters are active
+        //   emptyContent={
+        //       isLoading ? "Loading students..." :
+        //       (!facultyFilter && !classFilter && !sectionFilter && !searchText.trim() ? "Please select filters or search to view students." : "No students match your criteria.")
+        //   }
+        />
+      </div>
+    );
   };
   
-  export default List;  
+  export default List;

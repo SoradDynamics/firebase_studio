@@ -1,11 +1,11 @@
-// src/components/StudentComponent.tsx
+// src/components/MapComponent.tsx
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense, useMemo } from 'react';
 import client, { databases, account } from '~/utils/appwrite';
-import { LocationData } from '../../driver/MapDisplay';
+import { LocationData } from '../driver/MapDisplay';
 import { Models } from 'appwrite';
 import { FaChevronUp, FaChevronDown } from 'react-icons/fa';  // Import icons
 
-// --- Define DriverIcon directly inside StudentComponent (for the List) ---
+// --- Define DriverIcon directly inside MapComponent (for the List) ---
 interface DriverIconProps { color?: string; size?: number | string; className?: string; }
 const DriverIconList: React.FC<DriverIconProps> = ({ color = 'currentColor', size = 24, className = '' }) => (
     <svg
@@ -25,7 +25,7 @@ const DriverIconList: React.FC<DriverIconProps> = ({ color = 'currentColor', siz
 </svg>
 );
 
-// --- Define generateColorFromId directly inside StudentComponent ---
+// --- Define generateColorFromId directly inside MapComponent ---
 function generateColorFromId(id: string): string {
     let hash = 0;
     for (let i = 0; i < id.length; i++) {
@@ -39,7 +39,7 @@ function generateColorFromId(id: string): string {
 }
 
 // Dynamically import the MapDisplay component
-const LazyMapDisplay = lazy(() => import('../../driver/MapDisplay'));
+const LazyMapDisplay = lazy(() => import('../driver/MapDisplay'));
 
 // Environment variables from .env file
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
@@ -50,7 +50,7 @@ type DriverDoc = Models.Document & {
     timestamp: string; route?: string; email: string;
 };
 
-const StudentComponent: React.FC = () => {
+const MapComponent: React.FC = () => {
     const [locations, setLocations] = useState<LocationData[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<string>("Initializing...");
@@ -313,4 +313,4 @@ const StudentComponent: React.FC = () => {
     );
 };
 
-export default StudentComponent;
+export default MapComponent;

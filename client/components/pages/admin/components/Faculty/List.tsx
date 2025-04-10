@@ -6,13 +6,9 @@ import { TbReload } from "react-icons/tb";
 import {
   useDisclosure,
   Button,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   Input,
 } from "@heroui/react";
+import { Drawer } from "components/common/Drawer";
 import { useFacultyStore } from "~/store/facultyStore";
 
 import ErrorMessage from "../common/ErrorMessage";
@@ -49,10 +45,10 @@ const List: React.FC<ListProps> = ({ isMobile, onFacultySelect, facultyData, isL
   const [errorMessage, setErrorMessage] = useState<string | null>("");
 
   const {
-    isOpen: isAddModalOpen,
-    onOpen: onAddModalOpen,
-    onOpenChange: onAddModalOpenChange,
-    onClose: onAddModalClose,
+    isOpen: isAddDrawerOpen,
+    onOpen: onAddDrawerOpen,
+    onOpenChange: onAddDrawerOpenChange,
+    onClose: onAddDrawerClose,
   } = useDisclosure();
   const [newFacultyName, setNewFacultyName] = useState("");
   const [newFacultyClasses, setNewFacultyClasses] = useState("");
@@ -63,7 +59,7 @@ const List: React.FC<ListProps> = ({ isMobile, onFacultySelect, facultyData, isL
 
 
   const handleAdd = () => {
-    onAddModalOpen();
+    onAddDrawerOpen();
   };
 
   const handleRefresh = () => {
@@ -97,7 +93,7 @@ const List: React.FC<ListProps> = ({ isMobile, onFacultySelect, facultyData, isL
 
     try {
       await addFacultyData(newFacultyData);
-      onAddModalClose();
+      onAddDrawerClose();
       // fetchFacultyData(); // No need to fetch all data again - data is updated in store directly in addFacultyData
       // window.location.reload(); // No full page reload needed
       setNewFacultyName("");
@@ -157,82 +153,77 @@ const List: React.FC<ListProps> = ({ isMobile, onFacultySelect, facultyData, isL
         onClearSelection={(clearFn) => setTableClearSelection(() => clearFn)}
       />
 
-      {/* Add Faculty Modal */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onOpenChange={onAddModalOpenChange}
-        // size="md"
-        placement="center"
+      {/* Add Faculty Drawer */}
+      <Drawer
+        isOpen={isAddDrawerOpen}
+        onClose={onAddDrawerClose}
+        position="right"
+        nonDismissable={true} 
+        size="md"
       >
-        <ModalContent>
-          {(onCloseModal) => (
-            <>
-              {/* <ModalHeader className="flex justify-center text-xl">Add New Faculty</ModalHeader> */}
-              <ModalBody className="py-4">
-                <div className="flex flex-col gap-2 px-4">
-                  <h1 className=" text-xl font-semibold my-2">Add New Faculty</h1>
-                  {addError && (
-                    <div
-                      className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
-                      role="alert"
-                    >
-                      <strong className="font-bold">Error!</strong>
-                      <span className="block sm:inline">{addError}</span>
-                      <span className="absolute top-0 bottom-0 right-0 px-4 py-3">
-                        <ExclamationTriangleIcon className="h-5 w-5 text-red-500" aria-hidden="true" />
-                      </span>
-                    </div>
-                  )}
-                  {/* Name */}
-                  <Input
-                    id="add-faculty-name"
-                    type="text"
-                    label="Faculty Name"
-                    variant="underlined"
-                    // placeholder="Enter faculty name"
-                    value={newFacultyName}
-                    isRequired
-                    color="secondary"
-                    className="font-medium"
-                    onChange={(e) => {
-                      setNewFacultyName(e.target.value);
-                      setAddError(null); // Clear error when typing
-                    }}
-                  />
+        <Drawer.Header showCloseButton={true}>
+          Add New Faculty
+        </Drawer.Header>
+        <Drawer.Body>
+          <div className="flex flex-col gap-4">
+            {addError && (
+              <div
+                className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+                role="alert"
+              >
+                <strong className="font-bold">Error!</strong>
+                <span className="block sm:inline">{addError}</span>
+                <span className="absolute top-0 bottom-0 right-0 px-4 py-3">
+                  <ExclamationTriangleIcon className="h-5 w-5 text-red-500" aria-hidden="true" />
+                </span>
+              </div>
+            )}
+            {/* Name */}
+            <Input
+              id="add-faculty-name"
+              type="text"
+              label="Faculty Name"
+              variant="underlined"
+              value={newFacultyName}
+              isRequired
+              color="secondary"
+              className="font-medium"
+              onChange={(e) => {
+                setNewFacultyName(e.target.value);
+                setAddError(null); // Clear error when typing
+              }}
+            />
 
-                  {/* Classes (comma-separated) */}
-                  <Input
-                    id="add-faculty-classes"
-                    type="text"
-                    variant="underlined"
-                    label="Classes (comma-separated)"
-                    // placeholder="e.g., Math, Science, English"
-                    value={newFacultyClasses}
-                    isRequired
-                    color="secondary"
-                    className="font-medium"
-                    onChange={(e) => {
-                      setNewFacultyClasses(e.target.value);
-                      setAddError(null); // Clear error when typing
-                    }}
-                  />
-                </div>
-              </ModalBody>
-              <ModalFooter className=" px-10 mb-1">
-                <Button color="danger" variant="light" onPress={onCloseModal}>
-                  Cancel
-                </Button>
-                <Button color="success" onPress={handleAddSaveNewFaculty}
-                className=" text-white font-medium"
-                // startContent={<FaSave className="w-4 h-8 text-gray-100 transition duration-200" />}
-                >
-                  Save
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+            {/* Classes (comma-separated) */}
+            <Input
+              id="add-faculty-classes"
+              type="text"
+              variant="underlined"
+              label="Classes (comma-separated)"
+              value={newFacultyClasses}
+              isRequired
+              color="secondary"
+              className="font-medium"
+              onChange={(e) => {
+                setNewFacultyClasses(e.target.value);
+                setAddError(null); // Clear error when typing
+              }}
+            />
+          </div>
+        </Drawer.Body>
+        <Drawer.Footer>
+          <Button color="danger" variant="light" onPress={onAddDrawerClose}>
+            Cancel
+          </Button>
+          <Button
+            color="success"
+            onPress={handleAddSaveNewFaculty}
+            className="text-white font-medium"
+          >
+            Save
+          </Button>
+        </Drawer.Footer>
+      </Drawer>
     </div>
   );
 };

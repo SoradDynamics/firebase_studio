@@ -11,7 +11,9 @@ import {
   DocumentTextIcon,
   BuildingOfficeIcon,
 } from "@heroicons/react/24/outline";
-import { BookIcon, CalendarIcon, ImportIcon, UsersIcon } from "components/icons";
+import { BookIcon, BusIcon, CalendarIcon, ImportIcon, MapIcon, UsersIcon, WrenchIcon } from "components/icons";
+
+
 import Faculty from "./components/Faculty";
 import Section from "./components/Section";
 import Student from "./components/Student";
@@ -19,6 +21,8 @@ import stdSection from "./components/stdSection";
 import Calender from "./components/Calendar";
 import Std_Import from "./components/Std_Import";
 import Attendance from "./components/Attendance";
+import Transport from "./components/Transport";
+import MapComponent from "../common/MapComponent";
 
 // Define dummy components
 const DashboardComponent = () => <div><h2>Dashboard Component</h2><p>This is the  content.</p></div>;
@@ -49,7 +53,7 @@ export default function Layout() {
     {
       name: "Students",
       icon: UsersIcon,
-      component: StudentsComponent, // Main Students component
+      // component: StudentsComponent, // Main Students component
       children: [
         { name: "General", icon: DocumentTextIcon, component: Student },
         { name: "Section", icon: BookIcon, component:stdSection },
@@ -58,16 +62,22 @@ export default function Layout() {
         { name: "Attendance", icon: AdjustmentsHorizontalIcon, component: Attendance },
       ],
     },
+    { name: "Calendar", icon: CalendarIcon, component: Calender},
+    { name: "Transport", icon: BusIcon,
+      children:[
+        { name: "Configure", icon: WrenchIcon, component: Transport },
+        { name: "Map", icon: MapIcon, component: MapComponent },
+      ]
+    },
     {
       name: "Configure",
       icon: CogIcon,
-      component: ConfigureComponent, // Main Configure component
+      // component: ConfigureComponent, // Main Configure component
       children: [
         { name: "Faculty & Class", icon: BuildingOfficeIcon, component: Faculty },
         { name: "Section & Subject", icon: BookIcon, component: Section },
       ],
     },
-    { name: "Calendar", icon: CalendarIcon, component: Calender},
 
   ];
 

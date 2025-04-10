@@ -35,7 +35,8 @@ const ConfigureComponent = () => <div><h2>Configure Main Component</h2><p>This i
 //New Components
 import StudentsContent from "./components/StudentsContent";
 import DashboardContent from "./components/DashboardContent";
-import StudentComponent from "./components/StudentComponent";
+import MapComponent from "../common/MapComponent";
+import { BusIcon } from "components/icons";
 
 export default function Layout() {
   const [sidebarState, setSidebarState] = useState<number>(() => {
@@ -54,7 +55,7 @@ export default function Layout() {
 
   const sidebarItems = [
     { name: "Dashboard", icon: HomeIcon, component: DashboardComponent },
-    { name: "Bus", icon: HomeIcon, component: StudentComponent },
+    { name: "Bus Location", icon: BusIcon, component: MapComponent },
     {
       name: "Students",
       icon: UsersIcon,

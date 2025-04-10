@@ -187,7 +187,7 @@ const Table: React.FC<ExtendedTableProps> = ({
     const gridCells = [...allCellsData, ...trailingEmptyCells];
 
     return (
-      <div className="z-50 bg-white rounded-b shadow-md font-sans">
+      <div className=" bg-white rounded-b shadow-md font-sans">
         <table className=" table-fixed border-collapse w-full ">
           {" "}
           {/* Added border-collapse */}
@@ -422,7 +422,7 @@ const Table: React.FC<ExtendedTableProps> = ({
         </div>
       </div>
       {/* Month Header */}
-      <div className="flex-col text-white p-3 flex justify-between items-center rounded-t-md -mt-4 relative pt-4">
+      <div className="flex-col text-white p-0 sm:p-3 flex justify-between items-center rounded-t-md -mt-4 relative pt-4">
         {" "}
         {/* Make it overlap slightly */}
        <div className="bg-orange-500 rounded-t-md w-full p-3 flex justify-between items-center">

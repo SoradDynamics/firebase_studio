@@ -6,6 +6,7 @@ const cors = require('cors');
 // Import API routes
 const userRoutes = require('./routes/userRoutes'); 
 const calendarRoutes = require('./routes/calendarRoutes');
+const stdUserRoutes = require('./routes/stdUserController');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,6 +19,7 @@ app.use(express.json());
 // --- API Routes ---
 app.use('/api/users', userRoutes); 
 app.use('/api/calendar', calendarRoutes)
+app.use('/api/users/auth', stdUserRoutes);
 
 // --- Global Error Handler ---
 app.use((err, req, res, next) => {

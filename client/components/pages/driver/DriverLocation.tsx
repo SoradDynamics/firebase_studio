@@ -760,7 +760,7 @@ const DriverComponent: React.FC = () => {
 
     {/* Logout Popover */}
     {isPopoverOpen && (
-        <div className="sticky  bg-white border rounded shadow-md z-50 w-64 translate-x-[120%]">
+        <div className="sticky  bg-white border rounded shadow-md z-50 w-64 translate-x-[50%]">
           <div className="p-3">
             <p className="text-gray-700">Are you sure you want to log out?</p>
           </div>
