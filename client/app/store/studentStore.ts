@@ -68,27 +68,44 @@ export const useStudentStore = create<StudentState>((set, get) => ({
     }
   },
 
-  // --- addStudentData (no change) ---
-  addStudentData: async (studentInput, studentUserId) => {
-    set({ isLoading: true, error: null });
-    try {
-        const databaseId = import.meta.env.VITE_APPWRITE_DATABASE_ID!;
-        const studentCollectionId = import.meta.env.VITE_APPWRITE_STUDENT_COLLECTION_ID!;
-        if (!databaseId || !studentCollectionId) throw new Error("Student Store: DB/Collection ID missing.");
+ // --- addStudentData ---
+ addStudentData: async (studentInput, studentUserId) => {
+  set({ isLoading: true, error: null });
+  try {
+      const databaseId = import.meta.env.VITE_APPWRITE_DATABASE_ID!;
+      const studentCollectionId = import.meta.env.VITE_APPWRITE_STUDENT_COLLECTION_ID!;
+      const personalNotifyCollectionId = import.meta.env.VITE_APPWRITE_PERSONAL_NOTIFY_COLLECTION_ID!; // NEW: Get the collection ID for coll_personal_notify
+      if (!databaseId || !studentCollectionId || !personalNotifyCollectionId) throw new Error("Student Store: DB/Collection ID missing.");
 
-        const dataToSave = { ...studentInput, id: studentUserId };
-        const newStudentDoc = await databases.createDocument(databaseId, studentCollectionId, ID.unique(), dataToSave);
-        const addedStudent = newStudentDoc as unknown as Student;
+      const dataToSave = { ...studentInput, id: studentUserId };
+      const newStudentDoc = await databases.createDocument(databaseId, studentCollectionId, ID.unique(), dataToSave);
+      const addedStudent = newStudentDoc as unknown as Student;
 
-        set((state) => ({ studentData: [...state.studentData, addedStudent], isLoading: false }));
-        // console.log("Student Store: Student document created:", addedStudent.$id);
-        return addedStudent;
-    } catch (error: any) {
-        console.error("Student Store: Error adding student data:", error);
-        set({ error: error.message || "Failed to add student document", isLoading: false });
-        return null;
-    }
-  },
+      set((state) => ({ studentData: [...state.studentData, addedStudent], isLoading: false }));
+
+      // **SAVE TO coll_personal_notify TABLE**
+      try {
+          const notificationData = {
+              stdId: addedStudent.$id, // Save student ID to stdId column
+          };
+
+          await databases.createDocument(databaseId, personalNotifyCollectionId, ID.unique(), notificationData);
+          // console.log("Student Store: Notification document created for student:", addedStudent.$id);
+      } catch (notificationError: any) {
+          console.error("Student Store: Error creating notification:", notificationError);
+          // Consider how to handle this error.  Do you want to rollback the student creation? Log and continue?
+          // For now, we'll log the error and continue.  Important to not let this error prevent the student from being created.
+      }
+
+
+      return addedStudent;
+  } catch (error: any) {
+      console.error("Student Store: Error adding student data:", error);
+      set({ error: error.message || "Failed to add student document", isLoading: false });
+      return null;
+  }
+},
+
 
   // --- updateStudentData (no change) ---
   updateStudentData: async (studentDocId, dataToUpdate) => {

@@ -4,8 +4,8 @@ import { useStudentStore, Student, StudentUpdateData } from "~/store/studentStor
 import { useFacultyStore } from "~/store/facultyStore";
 import { Button } from "@heroui/react";
 import Popover from "../common/Popover";
-import { useAbsentStore } from "~/store/absentStore"; // Import the new store
 
+// import absent store
 
 interface DetailsProps {
     studentIds: string[];
@@ -21,7 +21,7 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
     const [isPopoverOpen, setIsPopoverOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false); // Add saving state
     const [saveError, setSaveError] = useState<string | null>(null);
-    const { markAbsent } = useAbsentStore(); // Use the new store
+
 
     useEffect(() => {
         const details = studentData
@@ -47,27 +47,9 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
         setSaveError(null);
 
         try {
-            const today = new Date().toISOString().slice(0, 10);
 
-            for (const studentDetail of selectedStudentDetails) {
-                try {
-                    // Call the function, remove the type error.
-                    // await markAbsent(studentDetail.id, today, studentData, updateStudentData);
-                     const student = studentData.find((s) => s.$id === studentDetail.id);
-                    if(student){
-                        if(!student.absent?.includes(today)){
-                             await updateStudentData(studentDetail.id, {
-                                absent: [...(student.absent || []), today],
-                            });
-                        }
-                    }
-                   
-                } catch (markAbsentError: any) {
-                    console.error(`Error marking student ${studentDetail.name} absent:`, markAbsentError);
-                    setSaveError(`Failed to mark student ${studentDetail.name} absent: ${markAbsentError.message}`);
-                }
-            }
-
+            ///here code for save
+          
             if (!saveError) {
                 console.log("Attendance saved successfully!");
                 // --- Notification System (Placeholder) ---
