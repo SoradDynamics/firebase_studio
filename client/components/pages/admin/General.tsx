@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Menu from '../../common/Menu';
 import TopBar from '../../common/TopBar';
-import { CogIcon, CalendarDaysIcon, BookOpenIcon, BuildingOfficeIcon, DocumentTextIcon, ChevronDownIcon, ChevronUpIcon, UserCircleIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline'; // Example icons
+import { CogIcon, CalendarDaysIcon, BookOpenIcon, BuildingOfficeIcon, DocumentTextIcon, ChevronDownIcon, ChevronUpIcon, UserCircleIcon, AdjustmentsHorizontalIcon, BellAlertIcon } from '@heroicons/react/24/outline'; // Example icons
 import Faculty from './components/Faculty';
 import Section from './components/Section';
 import { BookIcon, CalendarIcon, ImportIcon, UserIcon, UsersIcon } from 'components/icons';
@@ -12,9 +12,10 @@ import stdSection from './components/stdSection';
 import Calender from './components/Calendar';
 import Std_Import from './components/Std_Import';
 import Navbar from './Navbar';
+import Notification from './components/Notification';
 
 const AttendanceComponent = () => <div><h2>Attendance Component</h2><p>This is the Attendance content under Students.</p></div>;
-const Profile = () => <div><h2>Profile Component</h2><p>This is the Profile content under working.</p><Navbar/></div>;
+const Profile = () => <div><h2>Profile Component</h2><p>This is the Profile content under working.</p></div>;
 
 
 interface GeneralComponentProps {
@@ -77,6 +78,9 @@ const GeneralComponent: React.FC<GeneralComponentProps> = ({ initialMenuItem }) 
                     ]
                 },
                 { name: 'Calendar', icon: <CalendarIcon className="h-5 w-5" />, component: Calender, onClick: () => {} },
+                { name: 'Notification', icon: <BellAlertIcon className="h-5 w-5" />, component: Notification, onClick: () => {} },
+
+
                 { name: 'Profile', icon: <UserIcon className="h-5 w-5" />, component: Profile, onClick: () => {} },
             ],
         },

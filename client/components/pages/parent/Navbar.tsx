@@ -93,7 +93,7 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, setActiveItem }) => {
               )}
             </Button>
           </DropdownTrigger>
-           <DropdownMenu aria-label="Notification menu" className="p-0 max-w-sm"> {/* Constrain width if needed */}
+           <DropdownMenu aria-label="Notification menu" className="p-0 max-w-sm"> 
              <DropdownItem key="notification-center" isReadOnly className="p-0 focus:bg-transparent focus:outline-none cursor-default">
                 <NotificationCenter />
              </DropdownItem>
@@ -146,7 +146,7 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, setActiveItem }) => {
                     >
                       {(student) => (
                         // Ensure student object has 'id' and 'name' properties
-                        <SelectItem key={student.id} value={student.id}>{student.name}</SelectItem>
+                        <SelectItem key={student.id}>{student.name}</SelectItem>
                       )}
                     </Select>
                 </DropdownItem>

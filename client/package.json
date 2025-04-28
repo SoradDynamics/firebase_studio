@@ -35,6 +35,7 @@
     "appwrite": "^17.0.0",
     "axios": "^1.8.4",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "event": "link:@tauri-apps/api/event",
     "face-api.js": "^0.22.2",
     "framer-motion": "^11.14.3",

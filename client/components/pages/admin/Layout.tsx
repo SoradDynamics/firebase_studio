@@ -10,8 +10,9 @@ import {
   AdjustmentsHorizontalIcon,
   DocumentTextIcon,
   BuildingOfficeIcon,
+  BellAlertIcon,
 } from "@heroicons/react/24/outline";
-import { BookIcon, BusIcon, CalendarIcon, ImportIcon, MapIcon, UsersIcon, WrenchIcon } from "components/icons";
+import { BellIcon, BookIcon, BusIcon, CalendarIcon, ImportIcon, MapIcon, UsersIcon, WrenchIcon } from "components/icons";
 
 
 import Faculty from "./components/Faculty";
@@ -23,6 +24,7 @@ import Std_Import from "./components/Std_Import";
 import Attendance from "./components/Attendance";
 import Transport from "./components/Transport";
 import MapComponent from "../common/MapComponent";
+import Notification from "./components/Notification";
 
 // Define dummy components
 const DashboardComponent = () => <div><h2>Dashboard Component</h2><p>This is the  content.</p></div>;
@@ -63,6 +65,7 @@ export default function Layout() {
       ],
     },
     { name: "Calendar", icon: CalendarIcon, component: Calender},
+    { name: "Notification", icon:BellAlertIcon , component: Notification},
     { name: "Transport", icon: BusIcon,
       children:[
         { name: "Configure", icon: WrenchIcon, component: Transport },

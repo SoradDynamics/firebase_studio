@@ -8,7 +8,7 @@
 // export const iD = ID
 // export default client;
 
-import { Client, Account, ID, Databases, Storage, Query } from "appwrite";
+import { Client, Account, ID, Databases, Storage, Query, Functions } from "appwrite";
 
 const client = new Client();
 
@@ -42,6 +42,21 @@ export const iD = ID;
 export {ID, Query};
 export const databases = new Databases (client);
 export const storage = new Storage(client);
+export const functions = new Functions(client); // <<< Initialize and export Functions
 export default client;
 
 
+
+
+async function getCurrentUserEmail() {
+    try {
+      const user = await account.get();
+      console.log(user.email); // Print email
+      return user.email;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      return null;
+    }
+  }
+  
+export { getCurrentUserEmail };
