@@ -10,7 +10,7 @@ const DriverIcon: React.FC<DriverIconProps> = ({ color = 'currentColor', size = 
   xmlns="http://www.w3.org/2000/svg"
   fill={color}
   stroke="black"
-  strokeWidth="1.2"
+  strokeWidth="1"
   viewBox="0 0 24 24"
   style={{ width: size, height: size }}
   className={className}
@@ -32,6 +32,10 @@ let Leaflet: typeof L | null = null;
 let ReactDOMServer: typeof import('react-dom/server') | null = null;
 let DefaultIcon: L.Icon | null = null;
 
+interface CoordinateOffsets {
+    [coordinate: string]: number;
+}
+
 const MapDisplay: React.FC<MapDisplayProps> = ({ locations, colors, center = [20.5937, 78.9629], zoom = 5, currentDriverId, fitBounds = false }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<L.Map | null>(null);
@@ -39,6 +43,7 @@ const MapDisplay: React.FC<MapDisplayProps> = ({ locations, colors, center = [20
     const [leafletReady, setLeafletReady] = useState(false); // Track Leaflet loading
     const [RDServerReady, setRDServerReady] = useState(false);
     const [defaultIconReady, setDefaultIconReady] = useState(false); // Track DefaultIcon readiness
+    const coordinateOffsetsRef = useRef<CoordinateOffsets>({});
 
     useEffect(() => {
 
@@ -91,7 +96,7 @@ const MapDisplay: React.FC<MapDisplayProps> = ({ locations, colors, center = [20
             return null;
         }
         try {
-            const iconHtml = ReactDOMServer.renderToString(<DriverIcon color={color} size={60} />);
+            const iconHtml = ReactDOMServer.renderToString(<DriverIcon color={color} size={50} />);
             return Leaflet.divIcon({ html: iconHtml, className: '', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30] });
         } catch (error) {
             console.error("MapDisplay: Error rendering icon for Leaflet:", error);
@@ -142,6 +147,7 @@ const MapDisplay: React.FC<MapDisplayProps> = ({ locations, colors, center = [20
         const displayedMarkerIds = new Set(Object.keys(currentMarkers));
         const bounds = Leaflet.latLngBounds([]);
         let hasValidLocations = false;  // Flag to check for valid locations
+        const coordinateOffsets = coordinateOffsetsRef.current;
 
         locationMap.forEach((location, id) => {
             const { latitude, longitude, driverName, timestamp } = location;
@@ -149,7 +155,15 @@ const MapDisplay: React.FC<MapDisplayProps> = ({ locations, colors, center = [20
                 console.warn(`MapDisplay: Invalid coordinates for location ID ${id}`);
                 return;
             }
-            const latLng: L.LatLngTuple = [latitude, longitude];
+
+            // Apply offset to coordinates
+            const coordinateKey = `${latitude},${longitude}`;
+            coordinateOffsets[coordinateKey] = (coordinateOffsets[coordinateKey] || 0) + 1;
+            const offset = coordinateOffsets[coordinateKey] * 0.0001; // Adjust the offset as needed
+            const offsetLat = latitude + offset;
+            const offsetLng = longitude + offset;
+
+            const latLng: L.LatLngTuple = [offsetLat, offsetLng];
             const popupContent = `<b>${driverName || `Driver ${id.substring(0, 6)}`}</b><br/>${timestamp ? `Last Seen: ${new Date(timestamp).toLocaleString()}` : ''}${currentDriverId === id ? '<br/><i>(You)</i>' : ''}`;
 
             const driverColor = colors[id];
@@ -165,7 +179,6 @@ const MapDisplay: React.FC<MapDisplayProps> = ({ locations, colors, center = [20
             displayedMarkerIds.delete(id);
             bounds.extend(latLng);  // Extend bounds for valid locations
             hasValidLocations = true;
-
         });
 
         displayedMarkerIds.forEach((idToRemove) => {

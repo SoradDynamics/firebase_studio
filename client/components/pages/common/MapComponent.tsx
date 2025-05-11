@@ -137,7 +137,7 @@ const MapComponent: React.FC = () => {
 
                 const initialValidLocations: LocationData[] = response.documents
                     .map(parseAndValidateLocation)
-                    .filter((loc): loc is LocationData => loc !== null);
+                    .filter((loc:any): loc is LocationData => loc !== null);
 
                 console.log("Initial Valid Locations:", initialValidLocations); // Debug
 
@@ -155,7 +155,7 @@ const MapComponent: React.FC = () => {
 
                 unsubscribe = client.subscribe(
                     `databases.${DATABASE_ID}.collections.${COLLECTION_ID}.documents`,
-                    (response) => {
+                    (response:any) => {
                         if (!isMountedRef.current) return;
                         const changedDoc = response.payload as DriverDoc;
                         const locationId = changedDoc.$id;
