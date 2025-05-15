@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Select, SelectItem } from '@heroui/react';
 import { account, databases, Query } from '~/utils/appwrite'; // Import database ID
 import { Models } from 'appwrite';
-import StudentDetails from './StudentDetails'; // Import the StudentDetails component
+import StudentDetails from './StudentDetails';
+import ParentNotification from './components/ParentNotification';
 
 interface Parent {
   id: string;
   name: string;
   email: string;
   contact: string[];
-  students: string[]; // Array of student IDs
+  students: string[];
 }
 
 interface Student {
@@ -187,6 +188,7 @@ const ParentComponent: React.FC = () => {
           ) : (
             <p>No student selected.</p>
           )}
+           <ParentNotification />
         </div>
       ) : (
         <p>Loading parent data...</p>

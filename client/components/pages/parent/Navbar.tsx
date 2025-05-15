@@ -21,7 +21,8 @@ import { toast } from "react-hot-toast";
 import { account } from "~/utils/appwrite"; // Appwrite utility
 import { useStudentData } from "./StudentContext"; // Student data context hook
 import { useNotifications } from "./context/NotificationContext"; // Notification context hook (adjust path if needed)
-import { NotificationCenter } from "./NotificationCenter"; // Notification display component (adjust path if needed)
+// import { NotificationCenter } from "./NotificationCenter"; // Notification display component (adjust path if needed)
+import ParentNotification from "./components/ParentNotification";
 
 interface NavbarProps {
   toggleSidebar: () => void;
@@ -93,9 +94,9 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, setActiveItem }) => {
               )}
             </Button>
           </DropdownTrigger>
-           <DropdownMenu aria-label="Notification menu" className="p-0 max-w-sm"> 
+           <DropdownMenu aria-label="Notification menu" className="p-0 max-w-sm">
              <DropdownItem key="notification-center" isReadOnly className="p-0 focus:bg-transparent focus:outline-none cursor-default">
-                <NotificationCenter />
+                <ParentNotification />
              </DropdownItem>
           </DropdownMenu>
         </Dropdown>

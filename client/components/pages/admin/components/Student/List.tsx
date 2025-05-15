@@ -11,7 +11,7 @@ import { TbReload } from "react-icons/tb";
 import {
   useDisclosure,
   Button,
-  Input,
+  Input, // We'll still use HeroUI Input for the text field
   Autocomplete,
   AutocompleteItem,
   Select,
@@ -23,7 +23,7 @@ import { Student, useStudentStore } from "~/store/studentStore";
 import { useFacultyStore } from "~/store/facultyStore";
 import { useSectionStore } from "~/store/sectionStore";
 import { useParentStore } from "~/store/parentStore";
-import { Drawer } from "components/common/Drawer"; // Import Drawer component
+import { Drawer } from "components/common/Drawer";
 
 import ErrorMessage from "../common/ErrorMessage";
 import SearchBar from "../common/SearchBar";
@@ -53,7 +53,6 @@ interface ListProps {
 const List: React.FC<ListProps> = ({
   isMobile,
   onStudentSelect,
-  studentData: initialStudentData,
   isLoading: isRouteLoading,
 }) => {
   const { studentData, fetchStudentData, addStudentData } = useStudentStore();
@@ -65,12 +64,10 @@ const List: React.FC<ListProps> = ({
   const [searchText, setSearchText] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Use disclosure for drawer
   const {
-    isOpen: isAddDrawerOpen, // Renamed for clarity
-    onOpen: onAddDrawerOpen, // Renamed for clarity
-    onOpenChange: onAddDrawerOpenChange, // Renamed for clarity
-    onClose: onAddDrawerClose, // Renamed for clarity
+    isOpen: isAddDrawerOpen,
+    onOpen: onAddDrawerOpen,
+    onClose: onAddDrawerClose,
   } = useDisclosure();
   const [newStudentName, setNewStudentName] = useState("");
   const [newParentName, setNewParentName] = useState("");
@@ -85,7 +82,7 @@ const List: React.FC<ListProps> = ({
     useState<string>("");
   const [parentSearchInput, setParentSearchInput] = useState("");
   const [isParentDropdownOpen, setIsParentDropdownOpen] = useState(false);
-  const parentAutocompleteRef = useRef<HTMLDivElement>(null);
+  const parentAutocompleteRef = useRef<HTMLDivElement>(null); // For click outside
   const [addError, setAddError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -102,7 +99,12 @@ const List: React.FC<ListProps> = ({
   const [filteredAddModalClassItems, setFilteredAddModalClassItems] = useState<
     { key: string; label: string }[]
   >([]);
-  const [filteredExistingParentItems, setFilteredExistingParentItems] =
+  const [filteredAddModalSectionItems, setFilteredAddModalSectionItems] = useState<
+    { key: string; label: string }[]
+  >([]);
+  
+  // State for the custom parent autocomplete (max 5 items)
+  const [filteredParentItemsForDropdown, setFilteredParentItemsForDropdown] =
     useState<{ key: string; label: string }[]>([]);
 
   useEffect(() => {
@@ -121,13 +123,9 @@ const List: React.FC<ListProps> = ({
     setFilteredAddModalFacultyItems(
       facultyData.map((faculty) => ({ key: faculty.$id, label: faculty.name }))
     );
-    setFilteredExistingParentItems(
-      parentData.map((parent) => ({
-        key: parent.$id,
-        label: parent.name + " (" + parent.email + ")",
-      }))
-    );
-  }, [facultyData, parentData]);
+    // No longer pre-populating all parents for the custom autocomplete here
+    // It will be populated on type by debouncedFilterParents
+  }, [facultyData]); // Removed parentData from deps for this specific effect if it only sets faculty
 
   useEffect(() => {
     setFilteredAddModalClassItems(
@@ -137,10 +135,26 @@ const List: React.FC<ListProps> = ({
           ).map((cls) => ({ key: cls, label: cls }))
         : []
     );
-    if (selectedFacultyId) {
-    }
   }, [selectedFacultyId, facultyData]);
 
+  useEffect(() => {
+    if (isAddDrawerOpen && selectedFacultyId && newStudentClass) {
+      const sectionItems = sectionData
+        .filter(
+          (section) =>
+            section.facultyId === selectedFacultyId && section.class === newStudentClass
+        )
+        .map((section) => ({
+          key: section.$id,
+          label: section.name,
+        }));
+      setFilteredAddModalSectionItems(sectionItems);
+    } else {
+      setFilteredAddModalSectionItems([]);
+    }
+  }, [isAddDrawerOpen, sectionData, selectedFacultyId, newStudentClass]);
+
+  // Click outside handler for the custom parent autocomplete dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -155,6 +169,66 @@ const List: React.FC<ListProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // Debounced function to filter parents for the custom autocomplete
+  const debouncedFilterParents = useCallback(
+    debounce((searchValue: string) => {
+      const trimmedValue = searchValue.trim();
+      if (!trimmedValue) {
+        setFilteredParentItemsForDropdown([]);
+        setIsParentDropdownOpen(false); // Close if search term is empty
+        return;
+      }
+
+      const lowerSearchValue = trimmedValue.toLowerCase();
+      const allMatchingParents = parentData.filter(
+        (parent) =>
+          parent.name.toLowerCase().includes(lowerSearchValue) ||
+          parent.email.toLowerCase().includes(lowerSearchValue)
+      );
+
+      const mappedParents = allMatchingParents.map((parent) => ({
+        key: parent.$id,
+        label: `${parent.name} (${parent.email})`,
+      }));
+
+      setFilteredParentItemsForDropdown(mappedParents.slice(0, 5)); // Limit to 5 items
+      setIsParentDropdownOpen(true); // Open dropdown to show results or "no matches"
+    }, 300),
+    [parentData] // Dependency: parentData
+  );
+
+  const handleParentInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setParentSearchInput(value);
+    setAddError(null);
+    setSelectedExistingParentId(""); // Deselect parent if user types new text
+
+    if (value.trim() === "") {
+      setFilteredParentItemsForDropdown([]);
+      setIsParentDropdownOpen(false);
+    } else {
+      debouncedFilterParents(value); // This will update items and open/close dropdown
+    }
+  };
+
+  const handleParentInputFocus = () => {
+    if (parentSearchInput.trim() && !isParentDropdownOpen) {
+      // If there's text and dropdown is closed, re-run filter to open it
+      debouncedFilterParents(parentSearchInput.trim());
+    } else if (!parentSearchInput.trim()){
+        setIsParentDropdownOpen(false); // Ensure dropdown is closed if input is empty on focus
+    }
+  };
+
+  const handleParentSelect = (item: { key: string; label: string }) => {
+    setSelectedExistingParentId(item.key);
+    setParentSearchInput(item.label); // Update input field with selected label
+    setIsParentDropdownOpen(false); // Close dropdown
+    setFilteredParentItemsForDropdown([]); // Clear items after selection
+    setAddError(null);
+  };
+
 
   const handleSearchChange = (value: string) => {
     setSearchText(value);
@@ -172,9 +246,10 @@ const List: React.FC<ListProps> = ({
     setSelectedExistingParentId("");
     setParentSearchInput("");
     setIsParentDropdownOpen(false);
+    setFilteredParentItemsForDropdown([]); // Clear custom autocomplete items
     setAddError(null);
     setIsSaving(false);
-    onAddDrawerOpen(); // Open the drawer
+    onAddDrawerOpen();
   };
 
   const handleRefresh = () => {
@@ -298,7 +373,7 @@ const List: React.FC<ListProps> = ({
             "Backend did not return parent user ID for new parent."
           );
         }
-        const newParentData = {
+        const newParentDataForDb = {
           id: parentUserId,
           name: newParentName,
           email: newParentEmail,
@@ -307,7 +382,7 @@ const List: React.FC<ListProps> = ({
             .map((c) => c.trim())
             .filter(Boolean),
         };
-        const createdParent = await addParentData(newParentData, parentUserId);
+        const createdParent = await addParentData(newParentDataForDb, parentUserId);
         if (!createdParent) {
           throw new Error("Failed to save new parent document to database.");
         }
@@ -318,17 +393,29 @@ const List: React.FC<ListProps> = ({
         throw new Error("Parent document ID could not be determined.");
       }
 
-      const newStudentData = {
+      let sectionNameToSave = "";
+      if (newStudentSection) {
+        const selectedSectionObject = sectionData.find(
+          (sec) => sec.$id === newStudentSection
+        );
+        if (selectedSectionObject) {
+          sectionNameToSave = selectedSectionObject.name;
+        } else {
+          console.warn(`Could not find section name for ID: ${newStudentSection}. Saving empty section name.`);
+        }
+      }
+
+      const newStudentDataToSave = {
         id: studentUserId,
         name: newStudentName,
         class: newStudentClass,
         facultyId: selectedFacultyId,
-        section: newStudentSection || "",
+        section: sectionNameToSave,
         parentId: finalParentDocId,
         stdEmail: studentEmail,
       };
       const createdStudent = await addStudentData(
-        newStudentData,
+        newStudentDataToSave,
         studentUserId
       );
       if (!createdStudent) {
@@ -344,11 +431,10 @@ const List: React.FC<ListProps> = ({
           `Failed to update parent document ${finalParentDocId} with new student ${createdStudent.$id}. Manual check needed.`
         );
         toast.error("Student created, but failed to link to parent record.");
-      } else {
       }
 
       toast.success("Student and associated user(s) created successfully!");
-      onAddDrawerClose(); // Close the drawer
+      onAddDrawerClose();
     } catch (error: any) {
       console.error("Error during save process:", error);
       setAddError(error.message || "An unexpected error occurred during save.");
@@ -374,6 +460,8 @@ const List: React.FC<ListProps> = ({
     if (!checked) {
       setSelectedExistingParentId("");
       setParentSearchInput("");
+      setIsParentDropdownOpen(false);
+      setFilteredParentItemsForDropdown([]);
     } else {
       setNewParentName("");
       setNewParentEmail("");
@@ -381,45 +469,8 @@ const List: React.FC<ListProps> = ({
     }
   };
 
-  const debouncedFilterParents = useCallback(
-    debounce((value: string) => {
-      const lowerValue = value.toLowerCase();
-      const filtered = parentData
-        .filter(
-          (parent) =>
-            parent.name.toLowerCase().includes(lowerValue) ||
-            parent.email.toLowerCase().includes(lowerValue)
-        )
-        .map((parent) => ({
-          key: parent.$id,
-          label: parent.name + " (" + parent.email + ")",
-        }));
-      setFilteredExistingParentItems(filtered);
-    }, 300),
-    [parentData]
-  );
-
-  const handleParentInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setParentSearchInput(value);
-    setIsParentDropdownOpen(true);
-    debouncedFilterParents(value);
-    if (value === "") {
-      setSelectedExistingParentId("");
-    }
-    setAddError(null);
-  };
-
-  const handleParentSelect = (item: { key: string; label: string }) => {
-    setSelectedExistingParentId(item.key);
-    setParentSearchInput(item.label);
-    setIsParentDropdownOpen(false);
-    setAddError(null);
-  };
-
   const filteredStudentData = useMemo(() => {
     const numberOfRecordsToShowInitially = 10;
-
     const fullStudentData = studentData || [];
 
     if (searchText) {
@@ -427,6 +478,8 @@ const List: React.FC<ListProps> = ({
       return fullStudentData.filter((student) => {
         const parentName =
           parentData.find((p) => p.$id === student.parentId)?.name || "";
+        const studentSectionName = student.section;
+
         switch (selectedSearchOption) {
           case "name":
             return (student.name || "").toLowerCase().includes(lowerSearchText);
@@ -435,7 +488,7 @@ const List: React.FC<ListProps> = ({
               .toLowerCase()
               .includes(lowerSearchText);
           case "section":
-            return (student.section || "")
+            return (studentSectionName || "")
               .toLowerCase()
               .includes(lowerSearchText);
           case "parentName":
@@ -447,13 +500,13 @@ const List: React.FC<ListProps> = ({
     } else {
       const sortedData = [...fullStudentData].sort((a, b) => {
         try {
-          const dateA = new Date(a.$createdAt).getTime();
-          const dateB = new Date(b.$createdAt).getTime();
+          const dateA = a.$createdAt ? new Date(a.$createdAt).getTime() : 0;
+          const dateB = b.$createdAt ? new Date(b.$createdAt).getTime() : 0;
           if (isNaN(dateB)) return -1;
           if (isNaN(dateA)) return 1;
           return dateB - dateA;
         } catch (e) {
-          console.error("Error parsing date for sorting:", e);
+          console.error("Error parsing date for sorting student data:", e, a, b);
           return 0;
         }
       });
@@ -473,10 +526,10 @@ const List: React.FC<ListProps> = ({
           scrollbarColor: "#CBD5E1 transparent",
         }}
       >
+        {/* Search and Action Buttons UI ... */}
         <div className="min-w-[370px] mt-1 mx-3 md:px-0 mb-1">
           {/* Desktop layout (single line) */}
           <div className="hidden sm:flex items-center justify-between gap-2">
-            {/* Add Button */}
             <ActionButton
               icon={
                 <FaPlus className="w-4 h-4 text-gray-100 transition duration-200" />
@@ -485,8 +538,6 @@ const List: React.FC<ListProps> = ({
               color="orange"
               aria-label="Add New Student"
             />
-
-            {/* Search By Select */}
             <Select
               placeholder="Search By"
               className="max-w-[9rem] flex-shrink-0"
@@ -505,15 +556,11 @@ const List: React.FC<ListProps> = ({
                 <SelectItem key={option.value}>{option.label}</SelectItem>
               ))}
             </Select>
-
-            {/* Search Input */}
             <SearchBar
               placeholder="Search students..."
               value={searchText}
               onValueChange={handleSearchChange}
             />
-
-            {/* Refresh Button */}
             <ActionButton
               icon={
                 <TbReload className="w-5 h-5 text-gray-100 transition duration-200" />
@@ -525,7 +572,6 @@ const List: React.FC<ListProps> = ({
 
           {/* Mobile layout (two lines) */}
           <div className="sm:hidden flex flex-col gap-3">
-            {/* First row: Add Button and Select (centered) */}
             <div className="flex items-center justify-between">
               <ActionButton
                 icon={
@@ -555,11 +601,8 @@ const List: React.FC<ListProps> = ({
                   ))}
                 </Select>
               </div>
-              <div className="w-8 flex-shrink-0"></div>{" "}
-              {/* Spacer to balance the layout */}
+              <div className="w-8 flex-shrink-0"></div>
             </div>
-
-            {/* Second row: Search Bar and Reload Button */}
             <div className="flex justify-between items-center gap-6">
               <div className="flex-grow">
                 <SearchBar
@@ -568,7 +611,6 @@ const List: React.FC<ListProps> = ({
                   onValueChange={handleSearchChange}
                 />
               </div>
-
               <ActionButton
                 icon={
                   <TbReload className="w-5 h-5 text-gray-100 transition duration-200" />
@@ -581,7 +623,6 @@ const List: React.FC<ListProps> = ({
         </div>
       </div>
 
-      {/* Loading Indicator for initial data */}
       {isRouteLoading && (
         <Progress
           size="sm"
@@ -591,30 +632,26 @@ const List: React.FC<ListProps> = ({
         />
       )}
 
-      {/* --- Student Table --- */}
       <StudentTableRoute
         studentData={filteredStudentData}
-        isLoading={isRouteLoading}
+        isLoading={isRouteLoading || isSaving}
         onStudentSelect={onStudentSelect}
         onClearSelection={(clearFn: () => void) =>
           setTableClearSelection(() => clearFn)
         }
         facultyData={facultyData}
-        // sectionData={sectionData}
         parentData={parentData}
       />
 
-      {/* Add Student Drawer */}
       <Drawer
         isOpen={isAddDrawerOpen}
         onClose={onAddDrawerClose}
         position="right"
         size="lg"
-        nonDismissable={true}
+        nonDismissable={isSaving}
       >
-        <Drawer.Header showCloseButton={true}>Add New Student</Drawer.Header>
+        <Drawer.Header showCloseButton={!isSaving}>Add New Student</Drawer.Header>
         <Drawer.Body>
-          {/* Saving Progress Indicator */}
           {isSaving && (
             <Progress
               size="sm"
@@ -623,12 +660,7 @@ const List: React.FC<ListProps> = ({
               className="absolute top-0 left-0 w-full z-50"
             />
           )}
-          {/* Modal Body */}
-          <div className="flex flex-col gap-3 px-4">
-            {" "}
-            {/* Increased gap */}
-            {/* <h1 className="text-xl font-semibold mb-2">Add New Student</h1> */}
-            {/* Add Modal Error Display */}
+          <div className={`flex flex-col gap-3 px-4 ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}>
             {addError && (
               <div
                 className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-2 text-sm flex items-center"
@@ -638,36 +670,34 @@ const List: React.FC<ListProps> = ({
                 <span>{addError}</span>
               </div>
             )}
-            {/* Existing Parent Checkbox */}
             <Checkbox
               isSelected={isExistingParentCheckboxChecked}
               onChange={handleExistingParentCheckboxChange}
               size="md"
-              className=""
             >
               Existing Parent?
             </Checkbox>
-            {/* --- Conditional Parent Inputs --- */}
+
+            {/* --- CUSTOM PARENT AUTOCOMPLETE --- */}
             {isExistingParentCheckboxChecked ? (
-              // Existing Parent Search Autocomplete (Custom Implementation)
               <div className="relative" ref={parentAutocompleteRef}>
                 <Input
                   label="Search Existing Parent"
                   value={parentSearchInput}
                   onChange={handleParentInputChange}
-                  onFocus={() => setIsParentDropdownOpen(true)}
+                  onFocus={handleParentInputFocus}
                   variant="underlined"
                   size="sm"
                   color="secondary"
                   className="font-medium max-w-full"
-                  isRequired={isExistingParentCheckboxChecked} // Mark as required visually
+                  isRequired={isExistingParentCheckboxChecked}
                   isInvalid={
                     !!(
                       addError &&
                       isExistingParentCheckboxChecked &&
                       !selectedExistingParentId
                     )
-                  } // Show error state
+                  }
                   errorMessage={
                     addError &&
                     isExistingParentCheckboxChecked &&
@@ -678,29 +708,34 @@ const List: React.FC<ListProps> = ({
                   description={
                     selectedExistingParentId
                       ? "Parent selected."
-                      : "Type to search."
+                      : "Type to search by name or email."
                   }
-                  autoComplete="off" // Prevent browser autocomplete interference
+                  autoComplete="off" // Important for custom dropdown
                 />
                 {isParentDropdownOpen && (
-                  <ul className="absolute z-50 w-full bg-content1 border border-divider shadow-lg rounded-md mt-1 max-h-60 overflow-y-auto">
-                    {filteredExistingParentItems.length > 0 ? (
-                      filteredExistingParentItems.map((item) => (
+                  <ul
+                    className="absolute top-full mt-1 w-full bg-content1 border border-divider shadow-lg rounded-md max-h-60 overflow-y-auto z-50 list-none p-0"
+                    role="listbox" // Accessibility
+                  >
+                    {filteredParentItemsForDropdown.length > 0 ? (
+                      filteredParentItemsForDropdown.map((item) => (
                         <li
                           key={item.key}
                           onClick={() => handleParentSelect(item)}
-                          className="px-3 py-2 hover:bg-default-100 cursor-pointer text-sm"
+                          className="px-3 py-2 hover:bg-default-100 cursor-pointer text-sm text-foreground"
+                          role="option"
+                          aria-selected={selectedExistingParentId === item.key}
+                          tabIndex={-1} // Not focusable by tab, but can be by script
                         >
                           {item.label}
                         </li>
                       ))
-                    ) : (
-                      <li className="px-3 py-2 text-sm text-gray-500">
-                        {parentSearchInput
-                          ? "No matches found"
-                          : "Type to search"}
+                    ) : parentSearchInput.trim() !== "" ? (
+                      <li className="px-3 py-2 text-sm text-foreground-500 italic">
+                        No matches found
                       </li>
-                    )}
+                    ) : null /* Or show "Type to search..." if desired when input is empty & focused */
+                    }
                   </ul>
                 )}
               </div>
@@ -726,13 +761,13 @@ const List: React.FC<ListProps> = ({
                     !!(
                       addError &&
                       !isExistingParentCheckboxChecked &&
-                      !newParentName
+                      !newParentName.trim()
                     )
                   }
                   errorMessage={
                     addError &&
                     !isExistingParentCheckboxChecked &&
-                    !newParentName
+                    !newParentName.trim()
                       ? "Required"
                       : ""
                   }
@@ -756,13 +791,13 @@ const List: React.FC<ListProps> = ({
                     !!(
                       addError &&
                       !isExistingParentCheckboxChecked &&
-                      (!newParentEmail || !/\S+@\S+\.\S+/.test(newParentEmail))
+                      (!newParentEmail.trim() || !/\S+@\S+\.\S+/.test(newParentEmail))
                     )
                   }
                   errorMessage={
                     addError &&
                     !isExistingParentCheckboxChecked &&
-                    (!newParentEmail || !/\S+@\S+\.\S+/.test(newParentEmail))
+                    (!newParentEmail.trim() || !/\S+@\S+\.\S+/.test(newParentEmail))
                       ? "Valid email required"
                       : ""
                   }
@@ -772,7 +807,7 @@ const List: React.FC<ListProps> = ({
                   id="add-parent-contact"
                   type="text"
                   variant="underlined"
-                  label="Contact No.s (comma seprated)"
+                  label="Contact No.s (comma separated)"
                   value={newParentContact}
                   isRequired={!isExistingParentCheckboxChecked}
                   color="secondary"
@@ -786,20 +821,21 @@ const List: React.FC<ListProps> = ({
                     !!(
                       addError &&
                       !isExistingParentCheckboxChecked &&
-                      !newParentContact
+                      !newParentContact.trim()
                     )
                   }
                   errorMessage={
                     addError &&
                     !isExistingParentCheckboxChecked &&
-                    !newParentContact
+                    !newParentContact.trim()
                       ? "Required"
                       : ""
                   }
                 />
               </>
             )}
-            {/* --- End Parent Inputs --- */}
+            {/* --- END PARENT INPUTS --- */}
+
             {/* Faculty Select Autocomplete */}
             <Autocomplete
               fullWidth
@@ -816,6 +852,7 @@ const List: React.FC<ListProps> = ({
                 setNewStudentSection("");
                 setAddError(null);
                 setFilteredAddModalClassItems([]);
+                setFilteredAddModalSectionItems([]);
               }}
               errorMessage={
                 addError && !selectedFacultyId ? "Faculty required" : ""
@@ -831,7 +868,7 @@ const List: React.FC<ListProps> = ({
                     key: faculty.$id,
                     label: faculty.name,
                   }));
-                setFilteredAddModalFacultyItems(filtered);
+                setFilteredAddModalFacultyItems(filtered.length > 0 ? filtered : facultyData.map(f => ({ key: f.$id, label: f.name })));
               }}
               aria-label="Select Faculty"
               allowsCustomValue={false}
@@ -852,7 +889,9 @@ const List: React.FC<ListProps> = ({
               selectedKey={newStudentClass}
               onSelectionChange={(key) => {
                 setNewStudentClass(key ? key.toString() : "");
+                setNewStudentSection("");
                 setAddError(null);
+                setFilteredAddModalSectionItems([]);
               }}
               isDisabled={!selectedFacultyId}
               errorMessage={
@@ -870,7 +909,7 @@ const List: React.FC<ListProps> = ({
                     cls.toLowerCase().includes(value.toLowerCase())
                   )
                   .map((cls) => ({ key: cls, label: cls }));
-                setFilteredAddModalClassItems(filteredClasses);
+                setFilteredAddModalClassItems(filteredClasses.length > 0 ? filteredClasses : (allClassesForSelectedFaculty.map(cls => ({key: cls, label: cls}))));
               }}
               aria-label="Select Class"
               allowsCustomValue={false}
@@ -879,7 +918,42 @@ const List: React.FC<ListProps> = ({
                 <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>
               )}
             </Autocomplete>
-            {/* Section Input (Optional) */}
+            {/* Section Select Autocomplete */}
+            <Autocomplete
+              fullWidth
+              label="Section"
+              color="secondary"
+              variant="underlined"
+              size="sm"
+              className="font-medium"
+              selectedKey={newStudentSection}
+              onSelectionChange={(key) => {
+                setNewStudentSection(key ? key.toString() : "");
+                setAddError(null);
+              }}
+              isDisabled={!selectedFacultyId || !newStudentClass}
+              items={filteredAddModalSectionItems}
+              onInputChange={(value) => {
+                 const sectionsForClassAndFaculty = sectionData
+                  .filter(
+                    (section) =>
+                      section.facultyId === selectedFacultyId &&
+                      section.class === newStudentClass
+                  );
+                const filteredSections = sectionsForClassAndFaculty
+                  .filter((section) =>
+                    section.name.toLowerCase().includes(value.toLowerCase())
+                  )
+                  .map((section) => ({ key: section.$id, label: section.name }));
+                setFilteredAddModalSectionItems(filteredSections.length > 0 ? filteredSections : (sectionsForClassAndFaculty.map(s => ({key: s.$id, label: s.name}))));
+              }}
+              aria-label="Select Section"
+              allowsCustomValue={false}
+            >
+              {(item) => (
+                <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>
+              )}
+            </Autocomplete>
             {/* Student Name Input */}
             <Input
               fullWidth
@@ -896,9 +970,9 @@ const List: React.FC<ListProps> = ({
                 setNewStudentName(e.target.value);
                 setAddError(null);
               }}
-              isInvalid={!!(addError && !newStudentName)}
+              isInvalid={!!(addError && !newStudentName.trim())}
               errorMessage={
-                addError && !newStudentName ? "Student Name required" : ""
+                addError && !newStudentName.trim() ? "Student Name required" : ""
               }
             />
           </div>
@@ -915,12 +989,11 @@ const List: React.FC<ListProps> = ({
           <Button
             color="success"
             onPress={handleAddSaveNewStudent}
-            className="text-white font-medium" // Ensure text visibility
+            className="text-white font-medium"
             isLoading={isSaving}
-            isDisabled={isSaving} // Disable button while saving
+            isDisabled={isSaving}
           >
-            {isSaving ? "Saving..." : "Save Student"}{" "}
-            {/* More descriptive text */}
+            {isSaving ? "Saving..." : "Save Student"}
           </Button>
         </Drawer.Footer>
       </Drawer>

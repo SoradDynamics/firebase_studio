@@ -80,13 +80,13 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, setActiveItem }) => {
 
     // --- Render Logic ---
     return (
-        <nav className="flex flex-row m-3 gap-4 sm:gap-6 items-center justify-between pr-2 rounded bg-white shadow-sm p-2 dark:bg-gray-800">
+        <nav className="flex flex-row m-3 gap-4 sm:gap-6 items-center justify-between pr-2 rounded bg-white  dark:bg-gray-800">
             {/* Sidebar Toggle Button */}
             <button
                 onClick={toggleSidebar}
-                className="p-2 text-gray-700 hover:text-gray-900 font-semibold bg-gray-100 hover:bg-gray-200 rounded-md active:scale-95 transition-colors duration-150 ease-in-out md:hidden dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+                className="p-2 text-gray-700 hover:text-gray-900 font-semibold bg-gray-100 hover:bg-gray-200 rounded-md active:scale-95 transition-colors duration-150 ease-in-out dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
                 aria-label="Toggle sidebar"
-            >
+            > 
                 <Bars3Icon className="w-6 h-6" />
             </button>
 

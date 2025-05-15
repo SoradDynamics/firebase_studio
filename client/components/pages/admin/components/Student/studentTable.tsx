@@ -13,6 +13,7 @@ import {
 } from "~/store/parentStore";
 // --- Other Store/Type Imports ---
 import { useFacultyStore } from "~/store/facultyStore";
+import { useSectionStore } from "~/store/sectionStore";
 import { Faculty } from "types";
 // --- UI Library Imports ---
 import {
@@ -67,6 +68,8 @@ const StudentTableRoute: React.FC<StudentTableRouteProps> = ({
   facultyData,
   parentData,
 }) => {
+  const { sectionData, fetchSectionData } = useSectionStore();
+
   // --- Define the number of rows to show ---
   const ROWS_TO_SHOW = 10; // Set n here   rows to be displayed
 
@@ -107,6 +110,12 @@ const StudentTableRoute: React.FC<StudentTableRouteProps> = ({
     useState<{ key: string; label: string }[]>([]);
   const [filteredEditModalClassItems, setFilteredEditModalClassItems] =
     useState<{ key: string; label: string }[]>([]);
+  const [filteredEditModalSectionItems, setFilteredEditModalSectionItems] =
+    useState<{ key: string; label: string }[]>([]);
+
+  useEffect(() => {
+    fetchSectionData();
+  }, [fetchSectionData]);
 
   // --- Effects ---
   useEffect(() => {
@@ -124,6 +133,20 @@ const StudentTableRoute: React.FC<StudentTableRouteProps> = ({
         : []
     );
   }, [editFacultyId, facultyData]);
+
+  useEffect(() => {
+    setFilteredEditModalSectionItems(
+      sectionData
+        .filter(
+          (section) =>
+            section.facultyId === editFacultyId && section.class === editClass
+        )
+        .map((section) => ({
+          key: section.$id,
+          label: section.name,
+        }))
+    );
+  }, [editFacultyId, editClass, sectionData]);
 
   // --- Edit Modal Logic ---
   const handleEdit = useCallback(
@@ -159,9 +182,20 @@ const StudentTableRoute: React.FC<StudentTableRouteProps> = ({
               ?.classes?.map((cls) => ({ key: cls, label: cls })) ?? []
           : []
       );
+      setFilteredEditModalSectionItems(
+        sectionData
+          .filter(
+            (section) =>
+              section.facultyId === student.facultyId && section.class === student.class
+          )
+          .map((section) => ({
+            key: section.$id,
+            label: section.name,
+          }))
+      );
       onEditDrawerOpen(); //Open Drawer
     },
-    [facultyData, parentData, onEditDrawerOpen, isDeleting]
+    [facultyData, parentData, onEditDrawerOpen, isDeleting, sectionData]
   );
 
   const handleSave = useCallback(async () => {
@@ -202,17 +236,17 @@ const StudentTableRoute: React.FC<StudentTableRouteProps> = ({
         await updateParentDetails(editingParent.$id, parentDetailsUpdate);
       }
 
+      const selectedSection = sectionData.find((section) => section.$id === editSection);
+      const sectionName = selectedSection ? selectedSection.name : "";
+
       // Update Student Details (using imported type)
       const studentDetailsUpdate: StudentUpdateData = {
         name: editName.trim(),
         class: editClass.trim(),
         facultyId: editFacultyId,
-        section: editSection.trim() || "",
+        section: sectionName,
       };
-      const updatedStudent = await updateStudentData(
-        editingStudent.$id,
-        studentDetailsUpdate
-      );
+      const updatedStudent = await updateStudentData(editingStudent.$id, studentDetailsUpdate);
 
       toast.success(
         `Student '${updatedStudent?.name || editName}' updated successfully!`
@@ -229,21 +263,7 @@ const StudentTableRoute: React.FC<StudentTableRouteProps> = ({
     } finally {
       setIsSavingEdit(false);
     }
-  }, [
-    editingStudent,
-    editingParent,
-    editName,
-    editParentName,
-    editClass,
-    editSection,
-    editEmail,
-    editFacultyId,
-    editParentContact,
-    updateParentDetails,
-    updateStudentData,
-    onEditDrawerClose,
-    onStudentSelect, // Added dependencies
-  ]);
+  }, [editingStudent, editingParent, editName, editParentName, editClass, editSection, editEmail, editFacultyId, editParentContact, updateParentDetails, updateStudentData, onEditDrawerClose, onStudentSelect,sectionData]);
 
   // --- Delete Popover Logic ---
   const handleDeletePress = useCallback(
@@ -678,23 +698,32 @@ const StudentTableRoute: React.FC<StudentTableRouteProps> = ({
               )}
             </Autocomplete>
 
-            {/* Section Input */}
-            <Input
+            {/* Section Autocomplete */}
+            <Autocomplete
               fullWidth
-              id="edit-student-section"
-              type="text"
-              label="Section (Optional)"
-              placeholder="E.g., A, B"
+              label="Select Section"
               variant="underlined"
-              value={editSection}
               color="secondary"
               size="sm"
               className="font-medium"
-              onChange={(e) => {
-                setEditSection(e.target.value);
+              selectedKey={editSection}
+              onSelectionChange={(key) => {
+                setEditSection(key ? key.toString() : "");
+                setEditError(null);
               }}
-              isDisabled={isSavingEdit}
-            />
+              isDisabled={!editFacultyId || !editClass || isSavingEdit}
+              errorMessage={editError && !editSection ? "Section required" : ""}
+              isInvalid={!!(editError && !editSection)}
+              items={filteredEditModalSectionItems}
+              aria-label="Select Section"
+              allowsCustomValue={false}
+              placeholder="Choose a section"
+            >
+              {(item) => (
+                <AutocompleteItem key={item.key}>{item.label}</AutocompleteItem>
+              )}
+            </Autocomplete>
+
             {/* Student Name Input */}
             <Input
               fullWidth
