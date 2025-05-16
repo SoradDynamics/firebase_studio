@@ -1,13 +1,13 @@
 // ~/Attendance/Details.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import { useStudentStore, StudentUpdateData, Student } from "~/store/studentStore"; // Import Student type
+import { useStudentStore, StudentUpdateData, Student } from "~/store/studentStore";
 import { useFacultyStore } from "~/store/facultyStore";
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react"; // Assuming this is your UI library
 import Popover from "../common/Popover"; // Adjust path if needed
 import { useAbsentStore, NotificationPayload } from "~/store/absentStore";
 
 // Import Appwrite client, IDs, and utilities (adjust path as needed)
-import { account, databases, ID} from "~/utils/appwrite"; // Assuming this path
+import { account, databases, ID } from "~/utils/appwrite"; // Assuming this path
 
 interface DetailsProps {
     studentIds: string[]; // These are expected to be Appwrite document IDs ($id)
@@ -15,14 +15,13 @@ interface DetailsProps {
 }
 
 // Define the Appwrite notification creation function
-// This function is passed to the absentStore
 const createAppwriteNotification = async (data: NotificationPayload): Promise<any> => {
 
     const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID as string;
     const NOTIFICATIONS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_NOTIFY_COLLECTION_ID as string;
-
+    
     console.log("[Details.tsx/createAppwriteNotification] Attempting to create document in coll-notify with data:", JSON.stringify(data, null, 2));
-    console.log(`[Details.tsx/createAppwriteNotification] Using DB_ID: ${DATABASE_ID}, COLL_ID: ${NOTIFICATIONS_COLLECTION_ID}`);
+    // console.log(`[Details.tsx/createAppwriteNotification] Using DB_ID: ${DATABASE_ID}, COLL_ID: ${NOTIFICATIONS_COLLECTION_ID}`); // Optional: for brevity if IDs are confirmed
 
     if (!DATABASE_ID || !NOTIFICATIONS_COLLECTION_ID || DATABASE_ID === 'YOUR_DATABASE_ID_PLACEHOLDER' || DATABASE_ID === undefined) {
         console.error("[Details.tsx/createAppwriteNotification] Database ID or Collection ID is not configured correctly!");
@@ -40,14 +39,14 @@ const createAppwriteNotification = async (data: NotificationPayload): Promise<an
             ID.unique(), // Appwrite generates a unique ID
             data
         );
-        console.log("[Details.tsx/createAppwriteNotification] Successfully created document in coll-notify:", response);
+        console.log("[Details.tsx/createAppwriteNotification] Successfully created document in coll-notify:", response.$id);
         return response;
     } catch (error: any) {
         console.error("[Details.tsx/createAppwriteNotification] Appwrite Error: Failed to create document in coll-notify.");
         console.error("[Details.tsx/createAppwriteNotification] Error Code:", error.code);
         console.error("[Details.tsx/createAppwriteNotification] Error Message:", error.message);
-        console.error("[Details.tsx/createAppwriteNotification] Full Error Object:", error);
-        throw error; // Re-throw so absentStore and confirmSaveAttendance can catch it
+        // console.error("[Details.tsx/createAppwriteNotification] Full Error Object:", error); // Optional: for very detailed debugging
+        throw error;
     }
 };
 
@@ -72,14 +71,13 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
 
     const [currentUserLabel, setCurrentUserLabel] = useState<string>('Loading...');
 
-    // Fetch current user's label (name)
     const fetchCurrentUserLabel = useCallback(async () => {
         try {
             const user = await account.get();
             setCurrentUserLabel(user.name || 'Unknown Sender');
         } catch (error) {
-            console.error("Error fetching current user label:", error);
-            setCurrentUserLabel('System_Error'); // Fallback on error, make it distinct
+            console.error("[Details.tsx] Error fetching current user label:", error);
+            setCurrentUserLabel('System_Error');
             setSaveError("Could not fetch user information. Notifications might use a default sender or fail if sender is required.");
         }
     }, []);
@@ -89,9 +87,8 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
     }, [fetchCurrentUserLabel]);
 
     useEffect(() => {
-        // Prepare details for display, ensuring we have the Appwrite $id
         const details: StudentDisplayDetail[] = studentData
-            .filter((student: Student) => studentIds.includes(student.$id)) // Filter by Appwrite $id
+            .filter((student: Student) => studentIds.includes(student.$id))
             .map((student: Student) => {
                 const faculty = facultyData.find((f) => f.$id === student.facultyId);
                 return {
@@ -99,8 +96,8 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
                     faculty: faculty ? faculty.name : "N/A",
                     class: student.class,
                     section: student.section,
-                    docId: student.$id, // This is the Appwrite document ID
-                    customId: student.id, // Store the custom ID if needed for UI or direct use
+                    docId: student.$id,
+                    customId: student.id,
                 };
             });
         setSelectedStudentDetails(details);
@@ -109,15 +106,13 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
     const handleOpenSavePopover = () => {
         if (currentUserLabel === 'Loading...') {
             setSaveError("User information is still loading. Please wait and try again.");
-            setIsPopoverOpen(false);
-            return;
+            setIsPopoverOpen(false); return;
         }
          if (currentUserLabel === 'System_Error') {
             setSaveError("Cannot save: User information could not be fetched. Please try reloading or contact support.");
-            setIsPopoverOpen(false);
-            return;
+            setIsPopoverOpen(false); return;
         }
-        setSaveError(null); // Clear previous errors before opening
+        setSaveError(null);
         setIsPopoverOpen(true);
     };
 
@@ -128,28 +123,36 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
         let accumulatedErrors = "";
 
         try {
-            const today = new Date().toISOString().slice(0, 10); // AD Date
+            const localDate = new Date();
+            const year = localDate.getFullYear();
+            const month = (localDate.getMonth() + 1).toString().padStart(2, '0');
+            const day = localDate.getDate().toString().padStart(2, '0');
+            const dateForAbsence = `${year}-${month}-${day}`;
+
+            // VERY IMPORTANT LOGS:
+            console.log(`[Details.tsx] CONFIRM_SAVE_ATTENDANCE: Current local system Date object used = ${localDate.toString()}`);
+            console.log(`[Details.tsx] CONFIRM_SAVE_ATTENDANCE: Calculated 'dateForAbsence' (AD YYYY-MM-DD) to be passed = "${dateForAbsence}"`);
+
 
             if (currentUserLabel === 'Loading...' || currentUserLabel === 'System_Error' || !currentUserLabel) {
-                 const errorMsg = "Critical: Current user information is not available. Cannot proceed with marking absent and notifying.";
+                 const errorMsg = "Critical: Current user information is not available. Cannot proceed.";
                  console.error(errorMsg);
                  setSaveError(errorMsg);
                  setIsSaving(false);
-                 setIsPopoverOpen(false); // Close popover on critical failure
+                 setIsPopoverOpen(false);
                  return;
             }
 
             for (const studentDetail of selectedStudentDetails) {
-                // studentDetail.docId is the Appwrite Document ID ($id)
-                console.log(`[Details.tsx] Processing student doc ID: ${studentDetail.docId} (Custom ID: ${studentDetail.customId || 'N/A'}) for date: ${today}`);
+                console.log(`[Details.tsx] LOOP_ITERATION: Processing student docId=${studentDetail.docId}, for dateForAbsence="${dateForAbsence}"`);
                 try {
                     await markAbsent(
-                        studentDetail.docId,    // Pass Appwrite Document ID ($id)
-                        today,
-                        studentData,            // Full studentData array from studentStore
-                        updateStudentData,      // Update function from studentStore
-                        createAppwriteNotification, // Appwrite function defined in this file
-                        currentUserLabel        // Fetched current user label
+                        studentDetail.docId,
+                        dateForAbsence,
+                        studentData,
+                        updateStudentData,
+                        createAppwriteNotification,
+                        currentUserLabel
                     );
                     console.log(`[Details.tsx] Successfully processed absence for student doc ID: ${studentDetail.docId}`);
                 } catch (error: any) {
@@ -166,17 +169,14 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
                 console.warn(`[Details.tsx] ${operationsFailed} student(s) failed during attendance saving. Check errors.`);
             } else {
                 console.log("[Details.tsx] All attendance marked and notifications processed successfully!");
-                // Optionally, show a success toast/message to the user here
             }
 
-        } catch (error: any) { // Catch any unexpected errors from the loop itself or pre-loop logic
+        } catch (error: any) {
             console.error("[Details.tsx] General error during confirmSaveAttendance:", error);
             setSaveError(error.message || "An unexpected error occurred while saving attendance.");
         } finally {
             setIsSaving(false);
-            // Keep popover open if there were errors, otherwise close it.
-            // Or always close: setIsPopoverOpen(false);
-            if (operationsFailed === 0 && !saveError) { // Only close if everything was successful
+            if (operationsFailed === 0 && !saveError) {
                 setIsPopoverOpen(false);
             }
         }
@@ -201,7 +201,6 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
                     {selectedStudentDetails.map((student, index) => (
                         <li key={index} className="text-gray-700 mb-2">
                             {student.name} - Faculty: {student.faculty}, Class: {student.class}, Section: {student.section}
-                            {/* You can display student.docId or student.customId here for debugging if needed */}
                         </li>
                     ))}
                 </ul>
@@ -209,7 +208,7 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
                 <p className="text-gray-600 italic">No students selected.</p>
             )}
 
-            <div className="mt-auto pt-4"> {/* Added pt-4 for spacing */}
+            <div className="mt-auto pt-4">
                 <Button
                     color="primary"
                     onPress={handleOpenSavePopover}
@@ -220,7 +219,7 @@ const Details: React.FC<DetailsProps> = ({ studentIds, onBack }) => {
             </div>
             <Popover
                 isOpen={isPopoverOpen}
-                onClose={() => { if (!isSaving) setIsPopoverOpen(false); }} // Prevent closing while saving
+                onClose={() => { if (!isSaving) setIsPopoverOpen(false); }}
                 onConfirm={confirmSaveAttendance}
                 title="Confirm Save"
                 content={
