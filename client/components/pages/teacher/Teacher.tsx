@@ -1,24 +1,31 @@
-import React from 'react'
-import Navbar from './Navbar'
-import { NotificationProvider } from '../common/NotificationContext'
-import { TeacherProvider } from './components/TeacherContext'
-import { StudentProvider } from '../student/components/StudentContext'
+// Teacher.tsx
+import { useMediaQuery } from "react-responsive";
+
+import Teacher_Mobile from "./Mobile";
+import Layout from "./Layout";
+import { NotificationProvider } from "../common/NotificationContext";
+import { TeacherProvider } from "./components/TeacherContext";
 
 const Teacher = () => {
+  const isDesk = useMediaQuery({ minWidth: 767 });
+
   return (
-            // <StudentProvider>
+    <>
     <NotificationProvider>
-        <TeacherProvider>
-    <div>
-        <Navbar toggleSidebar={function (): void {
-              throw new Error('Function not implemented.')
-          } }/>
-    </div>
-
-    </TeacherProvider>
+      <TeacherProvider>
+      {isDesk ? (
+        <div>
+          <Layout />
+        </div>
+      ) : (
+        <div>
+          <Teacher_Mobile />
+        </div>
+      )}
+      </TeacherProvider>
     </NotificationProvider>
-    // </StudentProvider>
-  )
-}
+    </>
+  );
+};
 
-export default Teacher
+export default Teacher;
