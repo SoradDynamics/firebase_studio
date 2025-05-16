@@ -5,26 +5,31 @@ import Teacher_Mobile from "./Mobile";
 import Layout from "./Layout";
 import { NotificationProvider } from "../common/NotificationContext";
 import { TeacherProvider } from "./components/TeacherContext";
+import { StudentProvider } from "../student/components/StudentContext";
+import { ParentProvider } from "../parent/components/ParentContext";
 
 const Teacher = () => {
   const isDesk = useMediaQuery({ minWidth: 767 });
 
   return (
-    <>
-    <NotificationProvider>
+          <StudentProvider>
+    <ParentProvider>
       <TeacherProvider>
-      {isDesk ? (
-        <div>
-          <Layout />
-        </div>
-      ) : (
-        <div>
-          <Teacher_Mobile />
-        </div>
-      )}
-      </TeacherProvider>
+    <NotificationProvider>
+        {/* <ParentProvider> */}
+            {isDesk ? (
+              <div>
+                <Layout />
+              </div>
+            ) : (
+              <div>
+                <Teacher_Mobile />
+              </div>
+            )}
     </NotificationProvider>
-    </>
+      </TeacherProvider>
+        </ParentProvider>
+          </StudentProvider>
   );
 };
 
