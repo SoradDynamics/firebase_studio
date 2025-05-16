@@ -8,15 +8,15 @@ import {
   UsersIcon,
 } from "@heroicons/react/24/outline";
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/solid";
+import { StudentDataProvider } from "../student/StudentContext";
 
-import { StudentDataProvider } from "./StudentContext";  // Import StudentDataProvider
 
 // Define dummy components (as before)
 const DashboardComponent = () => {
   return (
     <div>
       <h2>Dashboard Component</h2>
-      <DashboardContent />  {/* Use DashboardContent */}
+      {/* <DashboardContent />  Use DashboardContent */}
     </div>
   );
 };
@@ -26,15 +26,13 @@ const StudentsComponent = () => {
   return (
     <div>
       <h2>Students Main Component</h2>
-      <StudentsContent />  {/* Use StudentsContent */}
+      {/* <StudentsContent />  Use StudentsContent */}
     </div>
   );
 };
 const ConfigureComponent = () => <div><h2>Configure Main Component</h2><p>This is the main Configure content.</p></div>;
 
 //New Components
-import StudentsContent from "./components/StudentsContent";
-import DashboardContent from "./components/DashboardContent";
 
 export default function Layout() {
   const [sidebarState, setSidebarState] = useState<number>(() => {
@@ -83,7 +81,7 @@ export default function Layout() {
   const ActiveComponent = getActiveComponent();
 
   return (
-    <StudentDataProvider>  {/* Wrap the content with StudentDataProvider */}
+     <StudentDataProvider> 
       <div className="flex h-screen bg-gray-100/40">
         <Sidebar
           sidebarState={sidebarState}
@@ -102,6 +100,6 @@ export default function Layout() {
           </main>
         </div>
       </div>
-    </StudentDataProvider>
+       </StudentDataProvider> 
   );
 }

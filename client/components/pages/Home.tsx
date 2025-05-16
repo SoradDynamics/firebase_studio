@@ -5,11 +5,9 @@ import { useMediaQuery } from "react-responsive";
 import Admin from "./admin/Admin";
 import Student from "./student/Student";
 import Parent from "./parent/Parent";
-import {ParentNotification} from "./parent/components/Notification";
-import DriverLocation from "./driver/DriverLocation";
-import StudentComponent from "./student/StudentComponent1";
 import DriverComponent from "./driver/DriverLocation";
 import FaceDetection from "./Camera";
+import Teacher from "./teacher/Teacher";
 export default function Home({
   user,
   setUser,
@@ -47,6 +45,8 @@ export default function Home({
         <Admin/>
         </div>
         }
+
+        {user.isTeacher && <div><Teacher/></div>}
 
       {/* <button
           className="mt-4 px-4 py-2 bg-red-500 text-white rounded"

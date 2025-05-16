@@ -5,8 +5,7 @@ import { Outlet } from "@remix-run/react";
 import GeneralComponent from "./General";
 import { BellIcon, DashboardIcon, SearchIcon, SidebarIcon } from "components/icons";
 import SearchBar from "./SearchBar-Mob";
-import DashboardContent from "./components/DashboardContent";
-import { useStudentData , StudentDataProvider} from "./StudentContext";
+// import DashboardContent from "./components/DashboardContent";
 
 
 const Layout: React.FC = () => {
@@ -134,7 +133,7 @@ const Layout: React.FC = () => {
   const renderActiveComponent = () => {
     switch (activeComponent) {
       case "Dashboard":
-        return <DashboardContent />;
+        // return <DashboardContent />;
       case "Search":
         return <SearchBar setActiveItem={setActiveComponent} />;
       case "Menu":
@@ -155,7 +154,6 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <StudentDataProvider>
 
     <div className="min-h-screen flex flex-col bg-gray-100">
       <div className="flex-1 overflow-x-hidden overflow-y-auto p-2">
@@ -174,7 +172,6 @@ const Layout: React.FC = () => {
         </div>
       </div>
     </div>
-    </StudentDataProvider>
 
   );
 };

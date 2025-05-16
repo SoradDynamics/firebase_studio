@@ -46,10 +46,11 @@ export default function Login({
       const isParent = user.labels?.includes("parent");
       const isStudent = user.labels?.includes("student");
       const isAdmin = user.labels?.includes("admin");
+      const isTeacher = user.labels?.includes("teacher");
       const isDriver = user.labels?.includes("driver");
         const isCam = user.labels?.includes("camera");
 
-      setUser({ ...user, isParent, isStudent, isAdmin, isDriver, isCam }); // Store role in state
+      setUser({ ...user, isParent, isStudent, isAdmin, isTeacher, isDriver, isCam }); // Store role in state
 
       toast.success("Login successful!"); // ✅ Now it only shows when logging in
     } catch (error: any) {
