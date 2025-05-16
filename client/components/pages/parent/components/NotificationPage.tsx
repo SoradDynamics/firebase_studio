@@ -1,8 +1,8 @@
 // ~/parent/components/ParentNotificationPage.tsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNotificationContext } from '../../../common/NotificationContext'; // Adjust path
+import { useNotificationContext } from '../../common/NotificationContext'; // Adjust path
 import { NotifyDocument } from 'types/notification'; // Adjust path
-import NotificationItem, { SenderRolesMap } from '../../../common/NotificationItem'; // Adjust path
+import NotificationItem, { SenderRolesMap } from '../../common/NotificationItem'; // Adjust path
 import { functions } from '~/utils/appwrite'; // Adjust path
 
 // Ensure YOUR_FUNCTION_ID is set correctly in your .env or directly here

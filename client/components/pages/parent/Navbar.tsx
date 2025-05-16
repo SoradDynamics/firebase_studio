@@ -18,7 +18,7 @@ import {
 import { account } from "~/utils/appwrite"; // Adjust path if needed
 
 // --- PARENT CONTEXT IMPORTS ---
-import { ParentContextType, useParentData } from "./components/ParentContext"; // Adjust path to your ParentContext
+import { ParentContextType, useParentData } from "./contexts/ParentContext"; // Adjust path to your ParentContext
 
 // --- COMMON NOTIFICATION CONTEXT IMPORT ---
 import { useNotificationContext } from "../common/NotificationContext"; // Adjust path
@@ -26,7 +26,7 @@ import { useNotificationContext } from "../common/NotificationContext"; // Adjus
 // --- COMPONENT IMPORTS ---
 // Parent SearchBar - You might need a different or no search bar for parents
 // import ParentSearchBar from "./ParentSearchBar"; // Create if needed
-import ParentNotificationPage from "./components/Notification/NotificationPage"; // Import the parent-specific notification page
+import ParentNotificationPage from "./components/NotificationPage"; // Import the parent-specific notification page
 import SearchBar from "./SearchBar";
 
 interface ParentNavbarProps {

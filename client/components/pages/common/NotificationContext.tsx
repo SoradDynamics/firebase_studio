@@ -17,7 +17,7 @@ import {
   UserForNotification,
 } from 'types/notification'; // Adjust path
 import { useStudentData } from '../student/components/StudentContext'; // Adjust path
-import { useParentData } from '../parent/components/ParentContext'; // Adjust path
+import { useParentData } from '../parent/contexts/ParentContext'; // Adjust path
 import { useTeacherData } from '../teacher/components/TeacherContext'; // Adjust path
 
 import {
@@ -62,6 +62,8 @@ export const isNotificationForUser = (
 
   const now = new Date();
   const validUntil = new Date(notification.valid);
+
+  
   if (now > validUntil) {
     // console.log(`isNotificationForUser: Notification ${notification.$id} is EXPIRED (valid until ${notification.valid}).`);
     return false;

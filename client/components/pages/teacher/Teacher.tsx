@@ -6,7 +6,7 @@ import Layout from "./Layout";
 import { NotificationProvider } from "../common/NotificationContext";
 import { TeacherProvider } from "./components/TeacherContext";
 import { StudentProvider } from "../student/components/StudentContext";
-import { ParentProvider } from "../parent/components/ParentContext";
+import { ParentProvider } from "../parent/contexts/ParentContext";
 
 const Teacher = () => {
   const isDesk = useMediaQuery({ minWidth: 767 });

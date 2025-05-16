@@ -9,6 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/solid";
 import { StudentDataProvider } from "../student/StudentContext";
+import ParentDashboardPage from "./components/Dashboard";
 
 
 // Define dummy components (as before)
@@ -50,7 +51,7 @@ export default function Layout() {
   };
 
   const sidebarItems = [
-    { name: "Dashboard", icon: HomeIcon, component: DashboardComponent },
+    { name: "Dashboard", icon: HomeIcon, component: ParentDashboardPage },
     { name: "Student", icon: HomeIcon, component: StudentsComponent },
     {
       name: "Students",
