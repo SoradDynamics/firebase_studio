@@ -137,7 +137,7 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, setActiveItem }) => {
                                     {studentLoading ? "Loading..." : (studentData?.name || "Student User")}
                                 </p>
                                 <p className="font-normal text-gray-500 text-xs truncate dark:text-gray-400">
-                                    {email || "..."}
+                                    {email || "..."}  {/* Display email of currently logged in user student */}
                                 </p>
                             </DropdownItem>
                         </DropdownSection>

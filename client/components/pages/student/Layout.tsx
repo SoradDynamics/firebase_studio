@@ -42,6 +42,7 @@ import { BusIcon } from "components/icons";
 import LeaveForm from "./components/Leave/LeaveForm";
 import Calendar from "../common/Calendaar/Calendar";
 import Leave from "../student/components/Leave/Leave";
+import Attd_Calendar from "./components/Attd_Calendar/Calendar";
 
 export default function Layout() {
   const [sidebarState, setSidebarState] = useState<number>(() => {
@@ -60,14 +61,14 @@ export default function Layout() {
 
   const sidebarItems = [
     { name: "Dashboard", icon: HomeIcon, component: DashboardComponent },
-    { name: "Leave", icon: BusIcon, component: LeaveForm },
     { name: "Bus Location", icon: BusIcon, component: MapComponent },
+    { name: "Calendar", icon: CalendarIcon, component: Calendar },
     {
       name: "Attendance",
       icon: FcLeave,
       // component: StudentsComponent,
       children: [
-        { name: "Calendar", icon: CalendarIcon, component: Calendar },
+        { name: "Details", icon: CalendarIcon, component: Attd_Calendar },
         { name: "Leave Form", icon: FileIcon, component: LeaveForm },
         { name: "Leave Details", icon: DetailIcon, component: Leave },
       ],

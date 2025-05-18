@@ -101,7 +101,7 @@ export const useAbsentStore = create<AbsentState>((set, get) => ({
 
                     const todayAdDateStringForNotificationDateField = formatDateToYYYYMMDD(new Date());
                     const yesterdayDateObject = new Date();
-                    yesterdayDateObject.setDate(yesterdayDateObject.getDate() - 1);
+                    yesterdayDateObject.setDate(yesterdayDateObject.getDate() + 1); //named as yesterday but this is today date
                     const validDateStringForNotification = formatDateToYYYYMMDD(yesterdayDateObject);
 
                     if (!currentUserLabel || currentUserLabel === 'Loading...' || currentUserLabel === 'System_Error') {

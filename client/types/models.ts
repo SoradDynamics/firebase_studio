@@ -60,7 +60,7 @@ export interface LeaveEntry {
 }
 
 // Update Student interface if not already done
-export interface Student extends Document { // Assuming Document is Appwrite's base
+export interface Student extends Models.Document { // Assuming Document is Appwrite's base
   id?: string; // Your custom ID if you have one, $id is Appwrite's
   $id: string;
   name: string;
@@ -72,4 +72,31 @@ export interface Student extends Document { // Assuming Document is Appwrite's b
   absent?: string[]; // Assuming array of ISO date strings
   leave?: string[];  // Array of JSON strings, each string is a LeaveEntry
   // other student fields
+}
+
+// Calendar types
+export interface DayData {
+  day: number; // Nepali day number
+  en: string;  // English date "YYYY/M/D"
+  np: string;  // Nepali date "YYYY/M/D" (optional, might be redundant if day gives np day)
+  tithi?: string;
+  dayOfWeek: number; // 1 (Sun) to 7 (Sat)
+  // Add other properties from your calendar JSON if needed
+}
+export interface MonthData {
+  month: number; // Nepali month number
+  year: number; // Nepali year (redundant if year is key in CalendarData)
+  name: string; // Nepali month name
+  days: DayData[];
+  ad_month_start?: string; // Optional AD month start
+  ad_month_end?: string;   // Optional AD month end
+}
+export interface CalendarData {
+  [year: string]: MonthData[]; // Year as key (e.g., "2081")
+}
+
+export interface MarkedDate {
+  bsDate: string;
+  type: 'absent' | 'leave' | string; // Added string to allow other types
+  details?: string;
 }
