@@ -37,6 +37,7 @@ import StudentsContent from "./components/StudentsContent";
 import DashboardContent from "./components/DashboardContent";
 import MapComponent from "../common/MapComponent";
 import { BusIcon } from "components/icons";
+import LeaveForm from "./components/Leave/LeaveForm";
 
 export default function Layout() {
   const [sidebarState, setSidebarState] = useState<number>(() => {
@@ -55,6 +56,7 @@ export default function Layout() {
 
   const sidebarItems = [
     { name: "Dashboard", icon: HomeIcon, component: DashboardComponent },
+    { name: "Leave", icon: BusIcon, component: LeaveForm },
     { name: "Bus Location", icon: BusIcon, component: MapComponent },
     {
       name: "Students",

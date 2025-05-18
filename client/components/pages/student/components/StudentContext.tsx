@@ -1,4 +1,4 @@
-// ~/components/StudentContext.tsx (VERIFY THIS PATH AND CONTENT)
+// students/components/StudentContext.tsx
 
 import React, {
     createContext,

@@ -1,4 +1,4 @@
-// ~/components/Notification.tsx (Ensure this file path is correct)
+// ~/components/Notification.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNotificationContext } from '../../common/NotificationContext'; // Adjust path if needed

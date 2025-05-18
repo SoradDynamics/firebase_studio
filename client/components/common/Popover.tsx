@@ -70,7 +70,7 @@ const Popover: React.FC<PopoverProps> = ({
   const popoverContent = (
     // Backdrop: Fixed overlay covering the screen
     <div
-      className=" inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
       // Close when clicking the backdrop (outside the content)
       onClick={onClose}
     >
@@ -136,4 +136,4 @@ const Popover: React.FC<PopoverProps> = ({
   return ReactDOM.createPortal(popoverContent, getPortalRoot());
 };
 
-export default Popover;
+export default Popover; 

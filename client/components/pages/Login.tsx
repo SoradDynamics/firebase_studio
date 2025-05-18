@@ -114,6 +114,7 @@ export default function Login({
                   variant="underlined"
                   placeholder="Enter your password"
                   type={isVisible ? "text" : "password"}
+                  minLength={8}
                   endContent={
                     <button
                       aria-label="toggle password visibility"
