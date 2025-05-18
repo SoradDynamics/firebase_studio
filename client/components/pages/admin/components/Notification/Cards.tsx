@@ -5,7 +5,7 @@ import { PlusIcon, ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/2
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import 'react-perfect-scrollbar/dist/css/styles.css';
 import { AppwriteNotification } from 'types/notification'; // Adjust path as needed
-import ActionButton from '../common/ActionButton';
+import ActionButton from '../../../../common/ActionButton';
 import { FaPlus } from 'react-icons/fa6';
 
 interface CardsProps {

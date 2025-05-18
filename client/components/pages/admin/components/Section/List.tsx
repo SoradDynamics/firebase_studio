@@ -15,7 +15,7 @@ import { Faculty, Section } from "types";
 
 import ErrorMessage from "../common/ErrorMessage";
 import SearchBar from "../common/SearchBar";
-import ActionButton from "../common/ActionButton";
+import ActionButton from "../../../../common/ActionButton";
 import SectionTableRoute from "./sectionTable";
 import { Drawer } from "components/common/Drawer"; // Import Drawer component
 import { ExclamationTriangleIcon } from "@heroicons/react/24/solid";

@@ -10,6 +10,7 @@ import {
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/solid";
 import { StudentDataProvider } from "../student/StudentContext";
 import ParentDashboardPage from "./components/Dashboard";
+import Leave from "./components/Leave/Leave";
 
 
 // Define dummy components (as before)
@@ -58,7 +59,7 @@ export default function Layout() {
       icon: UsersIcon,
       component: StudentsComponent,
       children: [
-        { name: "Attendance", icon: AdjustmentsHorizontalIcon, component: AttendanceComponent },
+        { name: "Leave Validation", icon: AdjustmentsHorizontalIcon, component: Leave },
       ],
     },
   ];

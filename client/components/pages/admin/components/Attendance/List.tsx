@@ -14,7 +14,7 @@ import React, {
   
   import ErrorMessage from "../common/ErrorMessage";
   import SearchBar from "../common/SearchBar";
-  import ActionButton from "../common/ActionButton";
+  import ActionButton from "../../../../common/ActionButton";
   import AttendanceTable from "./AttendanceTable";
   import toast, { Toaster } from "react-hot-toast";
   import { useStudentStore } from "~/store/studentStore";

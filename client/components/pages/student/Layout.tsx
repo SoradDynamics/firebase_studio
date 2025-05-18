@@ -7,6 +7,8 @@ import {
   HomeIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
+import { FcLeave } from "react-icons/fc";
+import { CalendarIcon, DetailIcon, FileIcon } from "components/icons";
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/solid";
 
 import { StudentDataProvider } from "./StudentContext";  // Import StudentDataProvider
@@ -38,6 +40,8 @@ import DashboardContent from "./components/DashboardContent";
 import MapComponent from "../common/MapComponent";
 import { BusIcon } from "components/icons";
 import LeaveForm from "./components/Leave/LeaveForm";
+import Calendar from "../common/Calendaar/Calendar";
+import Leave from "../student/components/Leave/Leave";
 
 export default function Layout() {
   const [sidebarState, setSidebarState] = useState<number>(() => {
@@ -59,11 +63,13 @@ export default function Layout() {
     { name: "Leave", icon: BusIcon, component: LeaveForm },
     { name: "Bus Location", icon: BusIcon, component: MapComponent },
     {
-      name: "Students",
-      icon: UsersIcon,
-      component: StudentsComponent,
+      name: "Attendance",
+      icon: FcLeave,
+      // component: StudentsComponent,
       children: [
-        { name: "Attendance", icon: AdjustmentsHorizontalIcon, component: AttendanceComponent },
+        { name: "Calendar", icon: CalendarIcon, component: Calendar },
+        { name: "Leave Form", icon: FileIcon, component: LeaveForm },
+        { name: "Leave Details", icon: DetailIcon, component: Leave },
       ],
     },
   ];

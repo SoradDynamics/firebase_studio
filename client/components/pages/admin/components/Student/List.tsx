@@ -27,7 +27,7 @@ import { Drawer } from "components/common/Drawer";
 
 import ErrorMessage from "../common/ErrorMessage";
 import SearchBar from "../common/SearchBar";
-import ActionButton from "../common/ActionButton";
+import ActionButton from "../../../../common/ActionButton";
 import StudentTableRoute from "./studentTable";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/solid";
 import toast, { Toaster } from "react-hot-toast";

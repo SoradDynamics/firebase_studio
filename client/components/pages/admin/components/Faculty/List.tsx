@@ -13,7 +13,7 @@ import { useFacultyStore } from "~/store/facultyStore";
 
 import ErrorMessage from "../common/ErrorMessage";
 import SearchBar from "../common/SearchBar";
-import ActionButton from "../common/ActionButton";
+import ActionButton from "../../../../common/ActionButton";
 import FacultyTableRoute from "./facultyTable";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/solid";
 import { FaSave } from "react-icons/fa";
