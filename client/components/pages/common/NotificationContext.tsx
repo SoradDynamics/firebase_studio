@@ -29,13 +29,88 @@ import {
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const NOTIFY_COLLECTION_ID = import.meta.env.VITE_APPWRITE_NOTIFY_COLLECTION_ID;
 
+// --- Local Storage for Tauri Displayed Notifications ---
+const TAURI_DISPLAYED_NOTIFICATIONS_LS_KEY = 'tauriDisplayedNotifications';
+
+// Gets the record of notification IDs and their original 'valid' timestamps
+const getDisplayedTauriNotificationsFromLS = (): Record<string, string> => {
+  try {
+    const stored = localStorage.getItem(TAURI_DISPLAYED_NOTIFICATIONS_LS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error("Error reading displayed Tauri notifications from LS:", e);
+    // If parsing fails, clear the corrupted item to prevent further errors
+    localStorage.removeItem(TAURI_DISPLAYED_NOTIFICATIONS_LS_KEY);
+  }
+  return {};
+};
+
+// Adds a notification ID and its 'valid' date string to LS
+const addDisplayedTauriNotificationToLS = (notificationId: string, validUntil: string): void => {
+  const displayed = getDisplayedTauriNotificationsFromLS();
+  displayed[notificationId] = validUntil; // Store the 'valid' date string
+  try {
+    localStorage.setItem(TAURI_DISPLAYED_NOTIFICATIONS_LS_KEY, JSON.stringify(displayed));
+    console.log(`NotificationContext: Marked Tauri notification ${notificationId} as displayed (valid until ${validUntil}) in LS.`);
+  } catch (e) {
+    console.error("Error saving displayed Tauri notification to LS:", e);
+  }
+};
+
+// Checks if a Tauri notification for this ID has been marked as displayed in LS
+const hasTauriNotificationBeenDisplayed = (notificationId: string): boolean => {
+  const displayed = getDisplayedTauriNotificationsFromLS();
+  return !!displayed[notificationId];
+};
+
+// Removes entries from LS whose 'validUntil' timestamp (original validity) is in the past
+const cleanupStoredTauriNotificationsFromLS = (): void => {
+  const displayed = getDisplayedTauriNotificationsFromLS();
+  const now = new Date();
+  let needsUpdate = false;
+  const newDisplayed: Record<string, string> = {};
+
+  for (const id in displayed) {
+    if (Object.prototype.hasOwnProperty.call(displayed, id)) {
+        const validUntilString = displayed[id];
+        try {
+            const validUntilDate = new Date(validUntilString);
+            // Check if the date is valid and if it's in the past
+            if (!isNaN(validUntilDate.getTime()) && validUntilDate > now) {
+                newDisplayed[id] = validUntilString; // Keep it
+            } else {
+                // console.log(`NotificationContext: Cleaning up LS entry for Tauri notification ${id} (was valid until ${validUntilString} or invalid date).`);
+                needsUpdate = true; // Mark for removal
+            }
+        } catch (e) {
+            // This catch might not be strictly necessary if new Date() handles bad strings by returning Invalid Date
+            console.warn(`NotificationContext: Error parsing date string for ${id} in LS: ${validUntilString}. Removing.`);
+            needsUpdate = true; // Remove invalid entry
+        }
+    }
+  }
+
+  if (needsUpdate) {
+    try {
+      localStorage.setItem(TAURI_DISPLAYED_NOTIFICATIONS_LS_KEY, JSON.stringify(newDisplayed));
+      // console.log("NotificationContext: Finished cleaning up LS for Tauri notifications.");
+    } catch (e) {
+      console.error("Error during cleanup of displayed Tauri notifications in LS:", e);
+    }
+  }
+};
+// --- End Local Storage ---
+
+
 interface NotificationContextType {
   notifications: NotifyDocument[];
   loading: boolean;
   userLoading: boolean;
   error: Error | null;
   fetchNotifications: () => Promise<void>;
-  addNotification: (notification: NotifyDocument) => void;
+  addNotification: (notification: NotifyDocument) => Promise<void>; // Renamed for clarity, handles Tauri
   hasNotificationPermission: boolean;
   currentUser: UserForNotification | null;
   currentUserType: 'student' | 'parent' | 'teacher' | null;
@@ -52,120 +127,66 @@ export const isNotificationForUser = (
   childrenDetails?: ChildStudentDetails[]
 ): boolean => {
   if (!user) {
-    // console.log(`isNotificationForUser: No user provided for notification ${notification.$id}`);
     return false;
   }
-
-  // Uncomment for very detailed per-notification check:
-  // console.log(`isNotificationForUser: CHECKING Doc ID: ${notification.$id}, Title: "${notification.title}" FOR User ID: ${user.id} (Appwrite User ID), User Document ID: ${user.$id}, Type: ${userType}, Labels: ${JSON.stringify(user.labels)}`);
-  // console.log(`isNotificationForUser: Notification 'to' field: ${JSON.stringify(notification.to)}, Valid until: ${notification.valid}`);
 
   const now = new Date();
   const validUntil = new Date(notification.valid);
 
-  
   if (now > validUntil) {
-    // console.log(`isNotificationForUser: Notification ${notification.$id} is EXPIRED (valid until ${notification.valid}).`);
     return false;
   }
 
   if (!notification.to || notification.to.length === 0) {
-    // console.log(`isNotificationForUser: Notification ${notification.$id} has no 'to' targets.`);
     return false;
   }
 
   for (const target of notification.to) {
     const [key, value] = target.split(':', 2);
-    // console.log(`isNotificationForUser: Target part: "${target}", Key: "${key}", Value: "${value}" for Doc ${notification.$id}`);
 
-    switch (key.toLowerCase()) { // Make key comparison case-insensitive
+    switch (key.toLowerCase()) {
       case 'id':
-        if (value === user.id) { // user.id should be the Appwrite User ID
-          console.log(`%cMATCH (ID)%c! Target id "${value}" === User id "${user.id}" for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
+        if (value === user.id) return true;
         if (userType === 'parent' && childrenDetails) {
-          if (childrenDetails.some(child => child.userId === value)) {
-            console.log(`%cMATCH (Parent's Child ID)%c! Target id "${value}" matches a child's User id for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-            return true;
-          }
+          if (childrenDetails.some(child => child.userId === value)) return true;
         }
         break;
       case 'role':
         const targetRole = value.toLowerCase();
-        if (targetRole === 'all') {
-          console.log(`%cMATCH (Role All)%c! for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
-        if (user.labels && user.labels.map(l => l.toLowerCase()).includes(targetRole)) {
-          console.log(`%cMATCH (Role Label)%c! User labels ${JSON.stringify(user.labels)} includes target role "${targetRole}" for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
-        if (userType === 'parent' && targetRole === 'student' && childrenDetails && childrenDetails.length > 0) {
-          console.log(`%cMATCH (Parent for Student Role)%c! Parent receiving student notification for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
+        if (targetRole === 'all') return true;
+        if (user.labels && user.labels.map(l => l.toLowerCase()).includes(targetRole)) return true;
+        if (userType === 'parent' && targetRole === 'student' && childrenDetails && childrenDetails.length > 0) return true;
         break;
-      case 'facultyid': // case-insensitive key
+      case 'facultyid':
         const targetFacultyId = value.toLowerCase();
-        if (targetFacultyId === 'all') {
-          console.log(`%cMATCH (FacultyId All)%c! for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
-        if (userType === 'student' && (user as StudentData).facultyId?.toLowerCase() === targetFacultyId) {
-          console.log(`%cMATCH (Student FacultyId)%c! for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
+        if (targetFacultyId === 'all') return true;
+        if (userType === 'student' && (user as StudentData).facultyId?.toLowerCase() === targetFacultyId) return true;
         if (userType === 'parent' && childrenDetails) {
-          if (childrenDetails.some(child => child.facultyId?.toLowerCase() === targetFacultyId)) {
-            console.log(`%cMATCH (Parent's Child FacultyId)%c! for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-            return true;
-          }
+          if (childrenDetails.some(child => child.facultyId?.toLowerCase() === targetFacultyId)) return true;
         }
-        if (userType === 'teacher' && (user as TeacherData).facultyId?.toLowerCase() === targetFacultyId) {
-          console.log(`%cMATCH (Teacher FacultyId)%c! Teacher facultyId "${(user as TeacherData).facultyId}" === Target facultyId "${targetFacultyId}" for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
+        if (userType === 'teacher' && (user as TeacherData).facultyId?.toLowerCase() === targetFacultyId) return true;
         break;
-      case 'class': // case-insensitive key
+      case 'class':
         const targetClass = value.toLowerCase();
-        if (targetClass === 'all') {
-          console.log(`%cMATCH (Class All)%c! for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
-        if (userType === 'student' && (user as StudentData).class?.toLowerCase() === targetClass) {
-          console.log(`%cMATCH (Student Class)%c! for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
+        if (targetClass === 'all') return true;
+        if (userType === 'student' && (user as StudentData).class?.toLowerCase() === targetClass) return true;
         if (userType === 'parent' && childrenDetails) {
-          if (childrenDetails.some(child => child.class?.toLowerCase() === targetClass)) {
-            console.log(`%cMATCH (Parent's Child Class)%c! for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-            return true;
-          }
+          if (childrenDetails.some(child => child.class?.toLowerCase() === targetClass)) return true;
         }
-        if (userType === 'teacher' && (user as TeacherData).assignedClasses?.map(c => c.toLowerCase()).includes(targetClass)) {
-          console.log(`%cMATCH (Teacher Assigned Class)%c! Teacher classes ${JSON.stringify((user as TeacherData).assignedClasses)} includes target class "${targetClass}" for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
+        if (userType === 'teacher' && (user as TeacherData).assignedClasses?.map(c => c.toLowerCase()).includes(targetClass)) return true;
         break;
-      case 'section': // case-insensitive key
+      case 'section':
         const targetSection = value.toLowerCase();
-        if (targetSection === 'all') {
-          console.log(`%cMATCH (Section All)%c! for Doc ${notification.$id}`, 'color: green; font-weight: bold;', 'color: inherit;');
-          return true;
-        }
+        if (targetSection === 'all') return true;
         if (userType === 'student' && (user as StudentData).section?.toLowerCase() === targetSection) return true;
         if (userType === 'parent' && childrenDetails) {
           if (childrenDetails.some(child => child.section?.toLowerCase() === targetSection)) return true;
         }
-        // Add teacher section logic if relevant
         break;
       default:
-        // console.log(`isNotificationForUser: Unknown target key "${key}" for Doc ${notification.$id}`);
         break;
     }
   }
-  // console.log(`%cNO MATCH%c for Doc ${notification.$id} with User ID ${user.id} (Appwrite User ID)`, 'color: red;', 'color: inherit;');
   return false;
 };
 
@@ -188,36 +209,17 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
   const [userLoading, setUserLoading] = useState(true);
 
   useEffect(() => {
-    console.log("NotificationContext: User context data update. StudentLoading:", studentLoadingFromCtx, "ParentLoading:", parentLoadingFromCtx, "TeacherLoading:", teacherLoadingFromCtx);
-    // console.log("NotificationContext: StudentData:", studentData, "ParentData:", parentData, "TeacherData:", teacherData);
-
+    // console.log("NotificationContext: User context data update.");
     if (!studentLoadingFromCtx && studentData) {
-      setCurrentUser(studentData);
-      setCurrentUserType('student');
-      setChildrenDetailsForParent(undefined);
-      setUserLoading(false);
-      console.log("NotificationContext: Current user set to STUDENT:", studentData);
+      setCurrentUser(studentData); setCurrentUserType('student'); setChildrenDetailsForParent(undefined); setUserLoading(false);
     } else if (!parentLoadingFromCtx && parentData) {
-      setCurrentUser(parentData);
-      setCurrentUserType('parent');
-      setChildrenDetailsForParent(parentData.childrenDetails);
-      setUserLoading(false);
-      console.log("NotificationContext: Current user set to PARENT:", parentData);
+      setCurrentUser(parentData); setCurrentUserType('parent'); setChildrenDetailsForParent(parentData.childrenDetails); setUserLoading(false);
     } else if (!teacherLoadingFromCtx && teacherData) {
-      setCurrentUser(teacherData);
-      setCurrentUserType('teacher');
-      setChildrenDetailsForParent(undefined);
-      setUserLoading(false);
-      console.log("NotificationContext: Current user set to TEACHER:", teacherData);
+      setCurrentUser(teacherData); setCurrentUserType('teacher'); setChildrenDetailsForParent(undefined); setUserLoading(false);
     } else if (!studentLoadingFromCtx && !parentLoadingFromCtx && !teacherLoadingFromCtx) {
-      setCurrentUser(null);
-      setCurrentUserType(null);
-      setChildrenDetailsForParent(undefined);
-      setUserLoading(false);
-      console.log("NotificationContext: All user contexts loaded, but no student, parent, or teacher data found. Current user set to null.");
+      setCurrentUser(null); setCurrentUserType(null); setChildrenDetailsForParent(undefined); setUserLoading(false);
     } else if (studentLoadingFromCtx || parentLoadingFromCtx || teacherLoadingFromCtx) {
         setUserLoading(true);
-        // console.log("NotificationContext: Waiting for one or more user data contexts to finish loading...");
     }
   }, [
     studentData, studentLoadingFromCtx,
@@ -226,7 +228,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
   ]);
 
   useEffect(() => {
-    const checkPermission = async () => {
+    const checkPermissionAndInitialCleanup = async () => {
       try {
         let permissionGranted = await isPermissionGranted();
         if (!permissionGranted) {
@@ -234,202 +236,216 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
           permissionGranted = permission === 'granted';
         }
         setHasNotificationPermission(permissionGranted);
-        // console.log("NotificationContext: Tauri notification permission status:", permissionGranted);
       } catch (err) {
         console.error('Error checking/requesting Tauri notification permission:', err);
         setHasNotificationPermission(false);
       }
+      // Perform initial cleanup of LS for Tauri displayed notifications
+      cleanupStoredTauriNotificationsFromLS();
     };
-    checkPermission();
+    checkPermissionAndInitialCleanup();
   }, []);
 
-  const addNotification = useCallback(async (newNotification: NotifyDocument) => {
-    // console.log(`NotificationContext: addNotification called with:`, newNotification);
+  // Internal function to handle sending Tauri notification and LS update
+  const _sendAndRecordTauriNotification = useCallback(async (notification: NotifyDocument) => {
+    if (!hasNotificationPermission) {
+        // console.log("NotificationContext: No Tauri permission, cannot send notification.");
+        return;
+    }
+    
+    // Always run cleanup before checking, to ensure LS is fresh
+    cleanupStoredTauriNotificationsFromLS(); 
+
+    if (hasTauriNotificationBeenDisplayed(notification.$id)) {
+      // console.log(`NotificationContext: Tauri notification for ${notification.$id} already displayed or marked in LS.`);
+      return;
+    }
+
+    try {
+      // console.log(`NotificationContext: Sending Tauri notification for ${notification.$id} ("${notification.title}")`);
+      await sendTauriNotification({
+        title: notification.title || 'New Notification',
+        body: notification.msg,
+      });
+      addDisplayedTauriNotificationToLS(notification.$id, notification.valid);
+    } catch (err) {
+      console.error(`NotificationContext: Failed to send Tauri notification for ${notification.$id}:`, err);
+    }
+  }, [hasNotificationPermission]); // Depends on hasNotificationPermission
+
+  // For new notifications (e.g., via subscription) or for adding to list
+  const addNotificationToListAndTryTauri = useCallback(async (newNotification: NotifyDocument) => {
     const now = new Date();
     const validUntil = new Date(newNotification.valid);
     if (now > validUntil) {
-        console.log(`NotificationContext: addNotification - Incoming notification ${newNotification.$id} is EXPIRED.`);
-        return;
+      // console.log(`NotificationContext: addNotificationToListAndTryTauri - Incoming notification ${newNotification.$id} is EXPIRED.`);
+      return;
     }
 
-    // Crucial: Use the current state of currentUser and currentUserType
-    if (isNotificationForUser(newNotification, currentUser, currentUserType, childrenDetailsForParent)) {
-      console.log(`%cNotificationContext: addNotification - Notification ${newNotification.$id} IS FOR current user. Adding to list.`, 'color: blue;');
+    // Check if notification is for the current user before adding to list or sending Tauri
+    if (currentUser && isNotificationForUser(newNotification, currentUser, currentUserType, childrenDetailsForParent)) {
+      // console.log(`NotificationContext: Notification ${newNotification.$id} IS FOR current user. Processing...`);
       setNotifications((prevNotifications) => {
         const exists = prevNotifications.some(n => n.$id === newNotification.$id);
         if (exists) {
-            // console.log(`NotificationContext: addNotification - Notification ${newNotification.$id} already exists in list.`);
-            return prevNotifications;
+            // console.log(`NotificationContext: Notification ${newNotification.$id} already exists in list. Not re-adding.`);
+            return prevNotifications; // Avoid duplicates if event somehow fires multiple times
         }
         const updatedList = [newNotification, ...prevNotifications];
         updatedList.sort((a, b) => new Date(b.date || b.$createdAt).getTime() - new Date(a.date || a.$createdAt).getTime());
         return updatedList;
       });
 
-      if (hasNotificationPermission) {
-        try {
-          // console.log(`NotificationContext: addNotification - Sending Tauri notification for ${newNotification.$id}`);
-          await sendTauriNotification({
-            title: newNotification.title || 'New Notification',
-            body: newNotification.msg,
-          });
-        } catch (err: any) {
-          console.error("NotificationContext: addNotification - Failed to send Tauri notification:", err);
-        }
-      }
+      // Attempt to send Tauri notification for this new/relevant item
+      await _sendAndRecordTauriNotification(newNotification);
+
     } else {
-        console.log(`NotificationContext: addNotification - Notification ${newNotification.$id} IS NOT for current user. Ignoring.`);
+      // console.log(`NotificationContext: addNotificationToListAndTryTauri - Notification ${newNotification.$id} IS NOT for current user or no user. Ignoring.`);
     }
-  }, [currentUser, currentUserType, childrenDetailsForParent, hasNotificationPermission]); // Dependencies are important here!
+  }, [currentUser, currentUserType, childrenDetailsForParent, _sendAndRecordTauriNotification]);
+
 
   const fetchNotifications = useCallback(async () => {
     if (!DATABASE_ID || !NOTIFY_COLLECTION_ID) {
-      console.error("NotificationContext: fetchNotifications - Error: Database ID or Notify Collection ID missing from .env");
-      setError(new Error("App configuration error."));
-      setLoading(false);
-      return;
-    }
-
-    if (userLoading) {
-      console.log("NotificationContext: fetchNotifications - Waiting for user data to load completely.");
+        console.error("NotificationContext: fetchNotifications - Error: Database ID or Notify Collection ID missing from .env");
+        setError(new Error("App configuration error."));
+        setLoading(false);
+        return;
+      }
+  
+      if (userLoading) {
+        setLoading(true);
+        return;
+      }
+  
+      if (!currentUser) {
+        setNotifications([]);
+        setLoading(false);
+        return;
+      }
+  
       setLoading(true);
-      return;
-    }
-
-    if (!currentUser) {
-      console.log("NotificationContext: fetchNotifications - No current user, cannot fetch notifications. Clearing list.");
-      setNotifications([]);
-      setLoading(false);
-      return;
-    }
-
-    console.log(`NotificationContext: fetchNotifications - Attempting to fetch for ${currentUserType}: User Appwrite ID ${currentUser.id}, User Document ID ${currentUser.$id}, Labels: ${JSON.stringify(currentUser.labels)}`);
-    setLoading(true);
-    setError(null);
-
-    try {
-      const nowISO = new Date().toISOString();
-      const targetQueriesSet = new Set<string>();
-
-      // 1. Common targets for all users
-      targetQueriesSet.add(`id:${currentUser.id}`); // Target by Appwrite User ID
-      if (currentUser.labels && currentUser.labels.length > 0) {
-        currentUser.labels.forEach(label => targetQueriesSet.add(`role:${label.toLowerCase()}`)); // Ensure role queries are lowercase
-      }
-      targetQueriesSet.add('role:all');
-      targetQueriesSet.add('class:all');
-      targetQueriesSet.add('section:all');
-      targetQueriesSet.add('facultyid:all'); // Using lowercase for consistency
-
-      // 2. Student-specific targets
-      if (currentUserType === 'student') {
-        const student = currentUser as StudentData;
-        if (student.class) targetQueriesSet.add(`class:${student.class.toLowerCase()}`);
-        if (student.section) targetQueriesSet.add(`section:${student.section.toLowerCase()}`);
-        if (student.facultyId) targetQueriesSet.add(`facultyid:${student.facultyId.toLowerCase()}`);
-      }
-      // 3. Parent-specific targets (for their children)
-      else if (currentUserType === 'parent' && childrenDetailsForParent) {
-        childrenDetailsForParent.forEach(child => {
-          targetQueriesSet.add(`id:${child.userId}`); // Child's Appwrite User ID
-          if (child.class) targetQueriesSet.add(`class:${child.class.toLowerCase()}`);
-          if (child.section) targetQueriesSet.add(`section:${child.section.toLowerCase()}`);
-          if (child.facultyId) targetQueriesSet.add(`facultyid:${child.facultyId.toLowerCase()}`);
-        });
-        targetQueriesSet.add('role:student'); // Parents can also get general "student" role notifications
-      }
-      // 4. Teacher-specific targets
-      else if (currentUserType === 'teacher') {
-        const teacher = currentUser as TeacherData;
-        // 'role:teacher' is already added by labels loop above
-        if (teacher.facultyId) targetQueriesSet.add(`facultyid:${teacher.facultyId.toLowerCase()}`);
-        if (teacher.assignedClasses && teacher.assignedClasses.length > 0) {
-          teacher.assignedClasses.forEach(cls => targetQueriesSet.add(`class:${cls.toLowerCase()}`));
+      setError(null);
+  
+      try {
+        const nowISO = new Date().toISOString();
+        const targetQueriesSet = new Set<string>();
+  
+        targetQueriesSet.add(`id:${currentUser.id}`);
+        if (currentUser.labels && currentUser.labels.length > 0) {
+          currentUser.labels.forEach(label => targetQueriesSet.add(`role:${label.toLowerCase()}`));
         }
-      }
-
-      const uniqueTargetQueries = Array.from(targetQueriesSet);
-      console.log("NotificationContext: fetchNotifications - Constructed uniqueTargetQueries for Appwrite:", uniqueTargetQueries);
-      
-      const queries = [
-        Query.greaterThanEqual('valid', nowISO),
-        Query.orderDesc('date'), // or $createdAt
-        Query.limit(100),
-        Query.contains('to', uniqueTargetQueries), // Appwrite will do OR logic for items in this array
-      ];
-
-      console.log("NotificationContext: fetchNotifications - Executing Appwrite Query:", JSON.stringify(queries));
-      const response = await databases.listDocuments<NotifyDocument>(
-        DATABASE_ID,
-        NOTIFY_COLLECTION_ID,
-        queries
-      );
-      console.log("NotificationContext: fetchNotifications - Appwrite Raw Response (documents count):", response.documents.length);
-      // console.log("NotificationContext: fetchNotifications - Appwrite Raw Documents:", response.documents); // Log if count is low/unexpected
-      
-      console.log("NotificationContext: fetchNotifications - Filtering raw documents with client-side isNotificationForUser...");
-      const relevantNotifications = response.documents.filter(doc =>
-        isNotificationForUser(doc, currentUser, currentUserType, childrenDetailsForParent)
-      );
-      console.log("NotificationContext: fetchNotifications - Relevant Notifications after client-side filter (count):", relevantNotifications.length);
-      // console.log("NotificationContext: fetchNotifications - Final Relevant Notifications:", relevantNotifications);
-
-
-      relevantNotifications.sort((a, b) => new Date(b.date || b.$createdAt).getTime() - new Date(a.date || a.$createdAt).getTime());
-      setNotifications(relevantNotifications);
-
-    } catch (err: any) {
-        console.error(`NotificationContext: fetchNotifications - Failed to fetch for ${currentUserType}:`, err);
-        if (err.message && err.message.includes("index") && err.message.includes("to")) {
-            setError(new Error("Database index missing or misconfigured for 'to' attribute in notifications. Ensure 'to' is indexed (Key: to, Type: FULLTEXT or KEY, Attributes: to, Orders: ASC)."));
-        } else {
-            setError(err);
+        targetQueriesSet.add('role:all');
+        targetQueriesSet.add('class:all');
+        targetQueriesSet.add('section:all');
+        targetQueriesSet.add('facultyid:all');
+  
+        if (currentUserType === 'student') {
+          const student = currentUser as StudentData;
+          if (student.class) targetQueriesSet.add(`class:${student.class.toLowerCase()}`);
+          if (student.section) targetQueriesSet.add(`section:${student.section.toLowerCase()}`);
+          if (student.facultyId) targetQueriesSet.add(`facultyid:${student.facultyId.toLowerCase()}`);
         }
-    } finally {
-      setLoading(false);
-    }
+        else if (currentUserType === 'parent' && childrenDetailsForParent) {
+          childrenDetailsForParent.forEach(child => {
+            targetQueriesSet.add(`id:${child.userId}`);
+            if (child.class) targetQueriesSet.add(`class:${child.class.toLowerCase()}`);
+            if (child.section) targetQueriesSet.add(`section:${child.section.toLowerCase()}`);
+            if (child.facultyId) targetQueriesSet.add(`facultyid:${child.facultyId.toLowerCase()}`);
+          });
+          targetQueriesSet.add('role:student');
+        }
+        else if (currentUserType === 'teacher') {
+          const teacher = currentUser as TeacherData;
+          if (teacher.facultyId) targetQueriesSet.add(`facultyid:${teacher.facultyId.toLowerCase()}`);
+          if (teacher.assignedClasses && teacher.assignedClasses.length > 0) {
+            teacher.assignedClasses.forEach(cls => targetQueriesSet.add(`class:${cls.toLowerCase()}`));
+          }
+        }
+  
+        const uniqueTargetQueries = Array.from(targetQueriesSet);
+        
+        const queries = [
+          Query.greaterThanEqual('valid', nowISO), // Fetch only currently valid notifications
+          Query.orderDesc('date'),
+          Query.limit(100), // Adjust limit as needed
+          Query.contains('to', uniqueTargetQueries),
+        ];
+  
+        const response = await databases.listDocuments<NotifyDocument>(
+          DATABASE_ID,
+          NOTIFY_COLLECTION_ID,
+          queries
+        );
+        
+        const relevantNotifications = response.documents.filter(doc =>
+          isNotificationForUser(doc, currentUser, currentUserType, childrenDetailsForParent)
+        );
+  
+        relevantNotifications.sort((a, b) => new Date(b.date || b.$createdAt).getTime() - new Date(a.date || a.$createdAt).getTime());
+        setNotifications(relevantNotifications);
+  
+      } catch (err: any) {
+          console.error(`NotificationContext: fetchNotifications - Failed to fetch for ${currentUserType}:`, err);
+          if (err.message && err.message.includes("index") && err.message.includes("to")) {
+              setError(new Error("Database index missing or misconfigured for 'to' attribute in notifications."));
+          } else {
+              setError(err);
+          }
+      } finally {
+        setLoading(false);
+      }
   }, [currentUser, currentUserType, childrenDetailsForParent, userLoading]);
 
   useEffect(() => {
     if (!userLoading && currentUser) {
-      console.log("NotificationContext: User data fully loaded and currentUser exists. Calling fetchNotifications.");
       fetchNotifications();
     } else if (!userLoading && !currentUser) {
-        console.log("NotificationContext: User data loaded, but no currentUser (e.g. not student/parent/teacher). Clearing notifications list.");
         setNotifications([]);
-        setLoading(false); // Ensure loading is false if no user
+        setLoading(false);
     }
-  }, [userLoading, currentUser, fetchNotifications]); // fetchNotifications is memoized
+  }, [userLoading, currentUser, fetchNotifications]);
+
+  // Effect to show Tauri notifications for initially fetched/loaded notifications
+  useEffect(() => {
+    // Run only after initial loading is done, user is present, and notifications are fetched
+    if (loading || userLoading || !currentUser || notifications.length === 0) {
+      return;
+    }
+    
+    // console.log("NotificationContext: Processing fetched notifications for Tauri display.");
+
+    notifications.forEach(notification => {
+        // isNotificationForUser also implicitly checks validity (now < validUntil)
+        if (isNotificationForUser(notification, currentUser, currentUserType, childrenDetailsForParent)) {
+             _sendAndRecordTauriNotification(notification); // This will handle LS check and permission
+        }
+    });
+  // _sendAndRecordTauriNotification is a stable useCallback, its dependencies are handled internally.
+  // This effect runs when the list of notifications changes, or user context, or loading states.
+  }, [notifications, currentUser, currentUserType, childrenDetailsForParent, loading, userLoading, _sendAndRecordTauriNotification]);
+
 
   useEffect(() => {
     if (!DATABASE_ID || !NOTIFY_COLLECTION_ID || !currentUser) {
-      // console.log("NotificationContext: Subscription prerequisites not met (config or currentUser missing). Skipping subscription setup.");
       return; 
     }
 
-    console.log(`NotificationContext: Setting up Appwrite subscription for user ${currentUser.id} (Appwrite User ID, Type: ${currentUserType}) on channel databases.${DATABASE_ID}.collections.${NOTIFY_COLLECTION_ID}.documents`);
+    // console.log(`NotificationContext: Setting up Appwrite subscription for user ${currentUser.id}`);
     const channel = `databases.${DATABASE_ID}.collections.${NOTIFY_COLLECTION_ID}.documents`;
     const unsubscribeFn = client.subscribe(channel, (response: any) => {
-      // console.log("NotificationContext: Realtime event received from Appwrite:", response);
       if (response.events.includes(`databases.${DATABASE_ID}.collections.${NOTIFY_COLLECTION_ID}.documents.*.create`)) {
         const newNotification = response.payload as NotifyDocument;
-        console.log("NotificationContext: Realtime CREATE event, payload:", newNotification);
-        addNotification(newNotification); // addNotification will call isNotificationForUser
+        // console.log("NotificationContext: Realtime CREATE event, payload:", newNotification);
+        addNotificationToListAndTryTauri(newNotification); // Use the combined function
       }
-      // Optionally handle updates if needed
-      // if (response.events.includes(`databases.${DATABASE_ID}.collections.${NOTIFY_COLLECTION_ID}.documents.*.update`)) {
-      //   const updatedNotification = response.payload as NotifyDocument;
-      //   console.log("NotificationContext: Realtime UPDATE event, payload:", updatedNotification);
-      //   // You might want to refetch or update the specific notification in the list
-      //   fetchNotifications(); // Simplest way, or more targeted update
-      // }
     });
 
     return () => {
-      console.log("NotificationContext: Cleaning up Appwrite subscription.");
+      // console.log("NotificationContext: Cleaning up Appwrite subscription.");
       unsubscribeFn();
     };
-  }, [DATABASE_ID, NOTIFY_COLLECTION_ID, currentUser, addNotification]); // addNotification is a dependency for the subscription effect
+  }, [DATABASE_ID, NOTIFY_COLLECTION_ID, currentUser, addNotificationToListAndTryTauri]); // addNotificationToListAndTryTauri is a dependency
 
   return (
     <NotificationContext.Provider
@@ -439,7 +455,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
         userLoading,
         error,
         fetchNotifications,
-        addNotification,
+        addNotification: addNotificationToListAndTryTauri, // Expose the function that also handles Tauri
         hasNotificationPermission,
         currentUser,
         currentUserType,

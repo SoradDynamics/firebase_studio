@@ -159,7 +159,7 @@ const LeaveForm: React.FC = () => {
       try {
         const from = new NepaliDate(fromDateBS);
         const to = new NepaliDate(toDateBS);
-        if (from.getTime() > to.getTime()) {
+        if (from.valueOf() > to.valueOf()) {
           setFormError("From Date (BS) cannot be after To Date (BS).");
           return;
         }
@@ -302,8 +302,9 @@ const LeaveForm: React.FC = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4 sm:p-6 bg-white shadow-lg rounded-lg border border-gray-200">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6 pb-4 border-b border-gray-200">Apply for Leave</h2>
+  <div className="flex items-center justify-center h-full w-full flex-col bg-gray-50">
+        <div className="max-w-3xl min-w-[500px] form p-6 bg-white shadow-lg rounded-lg border border-gray-200">
+      <h2 className="text-2xl font-semibold text-gray-800 text-center mb-6 pb-4 border-b border-gray-200">Apply for Leave</h2>
       <form onSubmit={handleApplyClick} className="space-y-6">
         <div>
           <Input
@@ -314,7 +315,11 @@ const LeaveForm: React.FC = () => {
             maxLength={20}
             isRequired
             fullWidth
-            variant="bordered"
+            color='secondary'
+
+            variant="faded"
+            className=' font-bold'
+
             description={`${title.length}/20 characters`}
           />
         </div>
@@ -328,7 +333,10 @@ const LeaveForm: React.FC = () => {
             maxLength={40}
             isRequired
             fullWidth
-            variant="bordered"
+            variant="faded"
+            className=' font-bold'
+            color='secondary'
+
             minRows={3}
             description={`${reason.length}/40 characters`}
           />
@@ -337,7 +345,7 @@ const LeaveForm: React.FC = () => {
         <div>
           <Select
             label="Leave Period"
-            placeholder="Select leave duration"
+            // placeholder="Select leave duration"
             selectedKeys={leavePeriod ? [leavePeriod] : []}
             onSelectionChange={(keys) => {
               const selectedKey = Array.from(keys as Set<React.Key>)[0]; // React.Key for broader type
@@ -345,10 +353,12 @@ const LeaveForm: React.FC = () => {
             }}
             isRequired
             fullWidth
-            variant="bordered"
+            variant="faded"
+            color='secondary'
+            className=' font-medium'
           >
             {leavePeriodOptions.map((option) => (
-              <SelectItem key={option.key} value={option.key} textValue={option.label}>
+              <SelectItem key={option.key} textValue={option.label}>
                 {option.label}
               </SelectItem>
             ))}
@@ -365,8 +375,10 @@ const LeaveForm: React.FC = () => {
                 onValueChange={setFromDateBS}
                 isRequired={leavePeriod === 'dateRange'}
                 fullWidth
-                variant="bordered"
-                description="Bikram Sambat format"
+                variant="faded"
+                color='secondary'
+                className=' font-medium'
+                description="Bikram Sambat format YYYY-MM-DD"
               />
             </div>
             <div>
@@ -377,8 +389,10 @@ const LeaveForm: React.FC = () => {
                 onValueChange={setToDateBS}
                 isRequired={leavePeriod === 'dateRange'}
                 fullWidth
-                variant="bordered"
-                description="Bikram Sambat format"
+                variant="faded"
+                color='secondary'
+                className=' font-medium'
+                description="Bikram Sambat format YYYY-MM-DD"
               />
             </div>
           </div>
@@ -435,6 +449,7 @@ const LeaveForm: React.FC = () => {
         isConfirmLoading={isSubmitting}
       />
     </div>
+  </div>
   );
 };
 

@@ -1,4 +1,4 @@
-// src/contexts/SelectedStudentContext.tsx
+// parent/contexts/SelectedStudentContext.tsx
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 
 interface SelectedStudentContextType {

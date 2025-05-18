@@ -12,6 +12,7 @@ import {
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID as string;
 const STUDENT_COLLECTION_ID = import.meta.env.VITE_APPWRITE_STUDENT_COLLECTION_ID as string;
 
+
 // RecordItem sub-component (same as before)
 const RecordItem: React.FC<{ icon: React.ElementType; label: string; value?: string | number | null; highlight?: boolean }> = ({
   icon: Icon, label, value, highlight = false,

@@ -7,8 +7,8 @@ import { databases, Query, account } from '~/utils/appwrite'; // Assuming appwri
 
 // Appwrite config (can be moved to a central config or env)
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID as string;
-const PARENT_COLLECTION_ID = import.meta.env.VITE_APPWRITE_PARENT_COLLECTION_ID as string;
 const STUDENT_COLLECTION_ID = import.meta.env.VITE_APPWRITE_STUDENT_COLLECTION_ID as string;
+const PARENT_COLLECTION_ID = import.meta.env.VITE_APPWRITE_PARENT_COLLECTION_ID as string;
 
 interface SelectStudentComponentProps {
   // Props like label, placeholder can still be passed if needed for specific instances
