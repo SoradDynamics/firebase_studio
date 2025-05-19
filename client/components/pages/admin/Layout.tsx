@@ -2,7 +2,7 @@
 import { Outlet } from "@remix-run/react";
 import Sidebar from "components/common/Sidebar";
 import Navbar from "./Navbar"; // Import Navbar
-import { useState, useEffect } from "react";
+import { useState, useEffect, Children } from "react";
 import {
   HomeIcon,
   UserCircleIcon,
@@ -26,6 +26,7 @@ import Transport from "./components/Transport";
 import MapComponent from "../common/MapComponent";
 import Notification from "./components/Notification";
 import FeeConfigurationPage from "./components/FeeConfigurationPage";
+import TeacherPage from "./components/Teacher";
 
 // Define dummy components
 const DashboardComponent = () => <div><h2>Dashboard Component</h2><p>This is the  content.</p></div>;
@@ -67,6 +68,16 @@ export default function Layout() {
         { name: "Attendance", icon: AdjustmentsHorizontalIcon, component: Attendance },
       ],
     },
+
+    {
+      name: "Teacher",
+      icon: UserCircleIcon,
+      children: [
+        { name: "Teach_General", icon: DocumentTextIcon, component: TeacherPage },
+        // { name: "Section", icon: BookIcon, component: Section },
+      ]
+    },
+
     { name: "Calendar", icon: CalendarIcon, component: Calender},
     { name: "Notification", icon:BellAlertIcon , component: Notification},
     { name: "Transport", icon: BusIcon,

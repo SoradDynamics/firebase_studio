@@ -73,6 +73,7 @@ export default function Layout() {
         { name: "Leave Details", icon: DetailIcon, component: Leave },
       ],
     },
+    
   ];
 
   const getActiveComponent = () => {
