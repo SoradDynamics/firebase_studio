@@ -60,3 +60,8 @@ async function getCurrentUserEmail() {
   }
   
 export { getCurrentUserEmail };
+
+export const APPWRITE_DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
+export const FACULTIES_COLLECTION_ID = import.meta.env.VITE_APPWRITE_FACULTY_COLLECTION_ID;
+export const SECTIONS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_SECTION_COLLECTION_ID;
+export const FEES_CONFIG_COLLECTION_ID = import.meta.env.VITE_APPWRITE_FEE_COLLECTION_ID;

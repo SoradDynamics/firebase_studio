@@ -25,6 +25,7 @@ import Attendance from "./components/Attendance";
 import Transport from "./components/Transport";
 import MapComponent from "../common/MapComponent";
 import Notification from "./components/Notification";
+import FeeConfigurationPage from "./components/FeeConfigurationPage";
 
 // Define dummy components
 const DashboardComponent = () => <div><h2>Dashboard Component</h2><p>This is the  content.</p></div>;
@@ -52,6 +53,8 @@ export default function Layout() {
 
   const sidebarItems = [
     { name: "Dashboard", icon: HomeIcon, component: DashboardComponent },
+    { name: "Fee", icon: HomeIcon, component: FeeConfigurationPage },
+
     {
       name: "Students",
       icon: UsersIcon,
