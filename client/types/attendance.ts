@@ -58,3 +58,18 @@ export interface LeaveData {
   // export interface CalendarData {
   //   [year: string]: MonthData[]; // Year as key, e.g., "2080"
   // }
+
+  export interface Student {
+    $id: string;
+    name: string;
+    class: string;
+    facultyId: string;
+    section: string;
+    stdEmail: string;
+    parentId: string; // Crucial link
+    absent: string[]; // Array of AD date strings "YYYY-MM-DD"
+    leave: string[]; // Array of JSON strings for LeaveData
+    // ... other student fields
+    $collectionId?: string;
+    $databaseId?: string;
+  }

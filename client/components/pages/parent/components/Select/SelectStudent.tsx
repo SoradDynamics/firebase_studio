@@ -115,7 +115,7 @@ const SelectStudentComponent: React.FC<SelectStudentComponentProps> = ({
   const hasStudents = students && students.length > 0;
 
   return (
-    <div className="flex items-center mb-9 gap-6 p-4 bg-white rounded-lg shadow-md border border-gray-200"> 
+    <div className="flex items-center mb-5 gap-6 p-4 bg-white rounded-lg shadow-md border border-gray-200"> 
       <label htmlFor="student-select-component" className="block text-gray-700 text-xl font-semibold whitespace-nowrap">
       {label}
       </label>
