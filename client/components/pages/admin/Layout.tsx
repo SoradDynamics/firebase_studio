@@ -27,6 +27,7 @@ import MapComponent from "../common/MapComponent";
 import Notification from "./components/Notification";
 import FeeConfigurationPage from "./components/FeeConfigurationPage";
 import TeacherPage from "./components/Teacher";
+import ExamManagementPage from "./components/Exam";
 
 // Define dummy components
 const DashboardComponent = () => <div><h2>Dashboard Component</h2><p>This is the  content.</p></div>;
@@ -91,6 +92,7 @@ export default function Layout() {
       icon: CogIcon,
       // component: ConfigureComponent, // Main Configure component
       children: [
+        { name: "Examsss", icon: DocumentTextIcon, component: ExamManagementPage },
         { name: "Faculty & Class", icon: BuildingOfficeIcon, component: Faculty },
         { name: "Section & Subject", icon: BookIcon, component: Section },
       ],

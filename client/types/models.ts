@@ -20,8 +20,7 @@ export interface Student extends AppwriteDocument {
 export interface Parent extends AppwriteDocument {
   name: string;
   email: string;
-  contact?: string[];
-  students?: string[]; // Array of student document IDs
+  
 }
 
 // You can define Section and Faculty too if needed for other parts,
@@ -99,4 +98,54 @@ export interface MarkedDate {
   bsDate: string;
   type: 'absent' | 'leave' | string; // Added string to allow other types
   details?: string;
+}
+
+
+
+
+// src/types/models.ts
+// Define types based on your Appwrite schema
+
+
+
+export interface Exam extends AppwriteDocument {
+    title: string;
+    type: string; // Manual input string
+    faculty: string[]; // Array of faculty names (strings)
+    class: string[]; // Array of class names (strings)
+    desc: string;
+    section: string[]; // Array of section names (strings)
+    subjectDates: string[]; // Array of strings like "Subject Name|YYYY-MM-DDTHH:mm:ss.sssZ"
+}
+
+export interface Faculty extends AppwriteDocument {
+    name: string;
+    classes: string[]; // Array of class names (strings)
+}
+
+export interface Section extends AppwriteDocument {
+    name: string;
+    subjects: string[]; // Array of subject names (strings)
+    class: string; // Single class name (string)
+    facultyId: string; // Single faculty ID (string)
+}
+
+export interface Student extends AppwriteDocument {
+    // id: string; // <-- Ensure this attribute exists in your coll-student schema
+    name: string;
+    class: string;
+    // facultyId: string;
+    // section: string;
+    // stdEmail: string;
+    // parentId?: string;
+    absent?: string[];
+    leave?: string[];
+    library?: string[]; // Or fee[] - match your actual schema
+}
+
+export interface Parent extends AppwriteDocument {
+    name: string;
+    email: string;
+    contact: string[];
+    students: string[]; // Array of student IDs or names? Assuming student IDs for linkage
 }

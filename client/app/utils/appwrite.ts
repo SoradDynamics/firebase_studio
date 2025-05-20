@@ -8,6 +8,7 @@
 // export const iD = ID
 // export default client;
 
+// ~/utils/appwrite.ts
 import { Client, Account, ID, Databases, Storage, Query, Functions } from "appwrite";
 
 const client = new Client();
@@ -61,7 +62,10 @@ async function getCurrentUserEmail() {
   
 export { getCurrentUserEmail };
 
-export const APPWRITE_DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
+export const APPWRITE_DATABASE_ID= import.meta.env.VITE_APPWRITE_DATABASE_ID;
 export const FACULTIES_COLLECTION_ID = import.meta.env.VITE_APPWRITE_FACULTY_COLLECTION_ID;
 export const SECTIONS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_SECTION_COLLECTION_ID;
 export const FEES_CONFIG_COLLECTION_ID = import.meta.env.VITE_APPWRITE_FEE_COLLECTION_ID;
+export const EXAMS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_EXAM_COLLECTION_ID;
+export const STUDENTS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_STUDENT_COLLECTION_ID;
+export const NOTIFICATIONS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_NOTIFY_COLLECTION_ID;

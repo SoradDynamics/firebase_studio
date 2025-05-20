@@ -11,6 +11,8 @@ import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/solid";
 import { StudentDataProvider } from "../student/StudentContext";
 import ParentDashboardPage from "./components/Dashboard";
 import Leave from "./components/Leave/Leave";
+import { icon } from "leaflet";
+import ParentExamViewPage from "./components/Exam";
 
 
 // Define dummy components (as before)
@@ -54,6 +56,7 @@ export default function Layout() {
   const sidebarItems = [
     { name: "Dashboard", icon: HomeIcon, component: ParentDashboardPage },
     { name: "Student", icon: HomeIcon, component: StudentsComponent },
+    { name: "Exam", icon: HomeIcon, component:ParentExamViewPage },
     {
       name: "Students",
       icon: UsersIcon,
