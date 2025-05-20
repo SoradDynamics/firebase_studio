@@ -44,6 +44,7 @@ import Calendar from "../common/Calendaar/Calendar";
 import Leave from "../student/components/Leave/Leave";
 import Attd_Calendar from "./components/Attd_Calendar/Calendar";
 import StudentExamViewPage from "./components/Exam";
+import StudentAttendancePage from "./components/Attendance/StudentAttendancePage";
 
 export default function Layout() {
   const [sidebarState, setSidebarState] = useState<number>(() => {
@@ -70,7 +71,7 @@ export default function Layout() {
       icon: FcLeave,
       // component: StudentsComponent,
       children: [
-        { name: "Details", icon: CalendarIcon, component: Attd_Calendar },
+        { name: "Details", icon: CalendarIcon, component: StudentAttendancePage },
         { name: "Leave Form", icon: FileIcon, component: LeaveForm },
         { name: "Leave Details", icon: DetailIcon, component: Leave },
       ],

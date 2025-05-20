@@ -28,6 +28,7 @@ import Notification from "./components/Notification";
 import FeeConfigurationPage from "./components/FeeConfigurationPage";
 import TeacherPage from "./components/Teacher";
 import ExamManagementPage from "./components/Exam";
+import RoutineManagement from "./components/Routine";
 
 // Define dummy components
 const DashboardComponent = () => <div><h2>Dashboard Component</h2><p>This is the  content.</p></div>;
@@ -87,6 +88,7 @@ export default function Layout() {
         { name: "Map", icon: MapIcon, component: MapComponent },
       ]
     },
+    { name: "Routine", icon: DocumentTextIcon, component: RoutineManagement },
     {
       name: "Configure",
       icon: CogIcon,
