@@ -8,7 +8,7 @@ import { useTeacherStore, TeacherFormData } from "~/store/teacherStore";
 import { Teacher } from 'types/teacher';
 
 import ErrorMessage from "../common/ErrorMessage";
-import SearchBar from "../common/SearchBar";
+import SearchBar from "../../../common/SearchBar";
 import ActionButton from "../../../../common/ActionButton";
 import TeacherTable from "./TeacherTable";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/solid";

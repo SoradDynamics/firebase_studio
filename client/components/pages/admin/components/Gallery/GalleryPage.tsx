@@ -6,7 +6,7 @@ import { useGalleryStore, ALL_FACULTIES_ID } from '~/store/galleryStore';
 import GalleryItemCard from './GalleryCard';
 import GalleryForm from './GalleryForm';
 import Popover from '../common/Popover';
-import SearchBar from '../common/SearchBar';
+import SearchBar from '../../../common/SearchBar';
 import CustomSelect, { SelectOption } from './CustomSelect';
 import ImageViewer from './ImageViewer'; // Import the new viewer
 

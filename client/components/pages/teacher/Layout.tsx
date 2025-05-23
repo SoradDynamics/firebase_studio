@@ -13,6 +13,7 @@ import {
   BellAlertIcon,
 } from "@heroicons/react/24/outline";
 import { BellIcon, BookIcon, BusIcon, CalendarIcon, ImportIcon, MapIcon, UsersIcon, WrenchIcon } from "components/icons";
+import ApproveLeavePage from "./components/LeaveApprove/ApproveLeavePage";
 
 
 // Define dummy components
@@ -41,18 +42,18 @@ export default function Layout() {
 
   const sidebarItems = [
     { name: "Dashboard", icon: HomeIcon, component: DashboardComponent },
-    // {
-    //   name: "Students",
-    //   icon: UsersIcon,
-    //   // component: StudentsComponent, // Main Students component
-    //   children: [
-    //     { name: "General", icon: DocumentTextIcon, component: Student },
-    //     { name: "Section", icon: BookIcon, component:stdSection },
-    //     { name: "Import Data", icon: ImportIcon, component:Std_Import },
+    {
+      name: "Students",
+      icon: UsersIcon,
+      // component: StudentsComponent, // Main Students component
+      children: [
+        // { name: "General", icon: DocumentTextIcon, component: Student },
+        // { name: "Section", icon: BookIcon, component:stdSection },
+        // { name: "Import Data", icon: ImportIcon, component:Std_Import },
 
-    //     { name: "Attendance", icon: AdjustmentsHorizontalIcon, component: Attendance },
-    //   ],
-    // },
+        { name: "Leave", icon: AdjustmentsHorizontalIcon, component: ApproveLeavePage },
+      ],
+    },
     // { name: "Calendar", icon: CalendarIcon, component: Calender},
     // { name: "Notification", icon:BellAlertIcon , component: Notification},
     { name: "Transport", icon: BusIcon,

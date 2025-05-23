@@ -14,14 +14,13 @@ interface LeaveApprovalFilters {
 type UserRole = 'admin' | 'teacher';
 
 interface LeaveApprovalState {
-  // User context
   currentUserEmail: string | null;
   currentUserRole: UserRole;
   teacherDetails: TeacherDocument | null;
-  teacherAssignedSectionIds: string[]; // IDs of sections teacher is class_teacher for
+  teacherAssignedSectionIds: string[]; // $id of sections teacher is class_teacher for
   teacherAssignedSectionsData: SectionDocument[]; // Full data of these sections
 
-  allStudents: StudentDocument[]; // For admin: all students; For teacher: students of their sections
+  allStudents: StudentDocument[];
   rawLeaveRequests: Leave[];
   processedAndFilteredLeaves: Leave[];
   
@@ -30,12 +29,11 @@ interface LeaveApprovalState {
   currentlyDisplayedCount: number;
 
   modifiedLeaves: Map<string, ModifiedLeave>;
-  isLoading: boolean; // Global loading for initial data fetch
+  isLoading: boolean;
   isFetchingMore: boolean;
   error: string | null;
   filters: LeaveApprovalFilters;
   
-  // Data for filter dropdowns - these will be scoped based on role
   faculties: FacultyDocument[];
   sections: SectionDocument[];
   classes: string[];
@@ -43,13 +41,13 @@ interface LeaveApprovalState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setInitialData: (data: {
-    students: StudentDocument[]; // Students (already scoped for teacher if applicable)
-    allFacultiesFromDB: FacultyDocument[]; // All faculties from DB
-    allSectionsFromDB: SectionDocument[];   // All sections from DB
+    students: StudentDocument[];
+    allFacultiesFromDB: FacultyDocument[];
+    allSectionsFromDB: SectionDocument[];
     userEmail: string | null;
     teacherDoc: TeacherDocument | null;
-    assignedSectionIdsForTeacher: string[];
-    assignedSectionsDataForTeacher: SectionDocument[];
+    assignedSectionIdsForTeacher: string[]; // These are $id of sections
+    assignedSectionsDataForTeacher: SectionDocument[]; // Full data of these sections
   }) => void;
 
   initializeAllLeaveData: () => void;
@@ -66,10 +64,10 @@ interface LeaveApprovalState {
 
 const useLeaveApprovalStore = create<LeaveApprovalState>((set, get) => ({
   currentUserEmail: null,
-  currentUserRole: 'admin', // Default, will be updated
+  currentUserRole: 'admin',
   teacherDetails: null,
   teacherAssignedSectionIds: [],
-  teacherAssignedSectionsData: [],
+  teacherAssignedSectionsData: [], // Initialize
 
   allStudents: [],
   rawLeaveRequests: [],
@@ -78,7 +76,7 @@ const useLeaveApprovalStore = create<LeaveApprovalState>((set, get) => ({
   totalProcessedLeavesCount: 0,
   currentlyDisplayedCount: 0,
   modifiedLeaves: new Map(),
-  isLoading: true, // Start with loading true for initial fetch
+  isLoading: true,
   isFetchingMore: false,
   error: null,
   filters: {
@@ -92,7 +90,7 @@ const useLeaveApprovalStore = create<LeaveApprovalState>((set, get) => ({
   classes: [],
 
   setLoading: (loading) => set({ isLoading: loading }),
-  setError: (error) => set({ error, isLoading: false }), // Stop loading on error
+  setError: (error) => set({ error, isLoading: false }),
 
   setInitialData: ({ 
     students, 
@@ -100,58 +98,64 @@ const useLeaveApprovalStore = create<LeaveApprovalState>((set, get) => ({
     allSectionsFromDB, 
     userEmail, 
     teacherDoc, 
-    assignedSectionIdsForTeacher,
-    assignedSectionsDataForTeacher,
+    assignedSectionIdsForTeacher, // These are $id of sections
+    assignedSectionsDataForTeacher, // Full data of these sections
   }) => {
     const role: UserRole = teacherDoc ? 'teacher' : 'admin';
     
     let finalFacultiesForFilter: FacultyDocument[];
-    let finalSectionsForFilter: SectionDocument[];
+    let finalSectionsForFilter: SectionDocument[]; // These will be the teacher's assigned sections if role is teacher
     let finalClassesForFilter: string[];
 
     if (role === 'teacher') {
-      // For teachers, students are already pre-filtered.
-      // Filter dropdowns should be based on their assigned sections.
-      finalSectionsForFilter = assignedSectionsDataForTeacher;
+      finalSectionsForFilter = assignedSectionsDataForTeacher; // Use the already filtered sections for the teacher
       const teacherClasses = [...new Set(assignedSectionsDataForTeacher.map(sec => sec.class))].filter(Boolean).sort();
       finalClassesForFilter = teacherClasses;
       
-      // Faculties for filter can be derived from teacher's sections or all faculties
       const teacherFacultyIds = new Set(assignedSectionsDataForTeacher.map(sec => sec.facultyId));
       finalFacultiesForFilter = allFacultiesFromDB.filter(fac => teacherFacultyIds.has(fac.$id));
-      // If no specific faculties linked to sections, or prefer to show all, use allFacultiesFromDB
-      if (finalFacultiesForFilter.length === 0 && allFacultiesFromDB.length > 0) {
-          finalFacultiesForFilter = allFacultiesFromDB; // Fallback or default
+      if (finalFacultiesForFilter.length === 0 && assignedSectionsDataForTeacher.length > 0 && allFacultiesFromDB.length > 0) {
+          // If teacher's sections don't map to any specific faculties but faculties exist,
+          // maybe show all, or an empty list. Showing filtered (even if empty) is often less confusing.
+          // For now, this keeps it strict: only faculties related to their sections.
+      } else if (finalFacultiesForFilter.length === 0 && allFacultiesFromDB.length > 0) {
+        // Fallback if no sections or sections have no facultyId, show all.
+        // finalFacultiesForFilter = allFacultiesFromDB;
       }
-
     } else { // Admin
       finalFacultiesForFilter = allFacultiesFromDB;
       finalSectionsForFilter = allSectionsFromDB;
-      const allClasses = [...new Set(
-          students.map(s => s.class).concat(allSectionsFromDB.map(s => s.class))
-      )].filter(Boolean).sort();
+      const studentClasses = students.map(s => s.class);
+      const sectionClasses = allSectionsFromDB.map(s => s.class);
+      const allClasses = [...new Set([...studentClasses, ...sectionClasses])].filter(Boolean).sort();
       finalClassesForFilter = allClasses;
     }
     
+    console.log('[Store.setInitialData] Role:', role);
+    console.log('[Store.setInitialData] Students for store:', students.map(s=>s.name));
+    console.log('[Store.setInitialData] Teacher assigned sections data for store/filters:', assignedSectionsDataForTeacher.map(s=>s.name));
+    console.log('[Store.setInitialData] Final sections for filter dropdown:', finalSectionsForFilter.map(s=>s.name));
+
+
     set({
-      allStudents: students, // These are pre-filtered for teachers
+      allStudents: students,
       faculties: finalFacultiesForFilter,
-      sections: finalSectionsForFilter,
+      sections: finalSectionsForFilter, // This is now correctly scoped for teacher
       classes: finalClassesForFilter,
       currentUserEmail: userEmail,
       currentUserRole: role,
       teacherDetails: teacherDoc,
-      teacherAssignedSectionIds: assignedSectionIdsForTeacher,
-      teacherAssignedSectionsData: assignedSectionsDataForTeacher,
-      isLoading: false, // Data is set, initial loading finished
+      teacherAssignedSectionIds: assignedSectionIdsForTeacher, // $ids of sections
+      teacherAssignedSectionsData: assignedSectionsDataForTeacher, // Full data for display
+      isLoading: false,
       error: null,
-      filters: { facultyId: null, class: null, section: null, searchText: '' }, // Reset filters on new data
+      filters: { facultyId: null, class: null, section: null, searchText: '' },
     });
     get().initializeAllLeaveData();
   },
 
   initializeAllLeaveData: () => {
-    const { allStudents } = get(); // allStudents is already correctly scoped
+    const { allStudents } = get(); 
     const allParsedLeaves: Leave[] = [];
 
     allStudents.forEach(student => {
@@ -164,11 +168,11 @@ const useLeaveApprovalStore = create<LeaveApprovalState>((set, get) => ({
             studentName: student.name,
             studentClass: student.class,
             studentFacultyId: student.facultyId,
-            studentSection: student.section,
+            studentSection: student.section, // This is student's section $id
           };
           allParsedLeaves.push(enrichedLeave);
         } catch (e) {
-          console.error("Failed to parse leave data:", leaveStr, e);
+          console.error("[Store.initializeAllLeaveData] Failed to parse leave data:", leaveStr, e);
         }
       });
     });
@@ -179,13 +183,14 @@ const useLeaveApprovalStore = create<LeaveApprovalState>((set, get) => ({
         return dateB - dateA;
     });
     
+    console.log('[Store.initializeAllLeaveData] All parsed leaves:', allParsedLeaves.length, allParsedLeaves.slice(0,5));
     set({ rawLeaveRequests: allParsedLeaves });
     get().applyFiltersAndPrepareDisplay();
   },
 
   applyFiltersAndPrepareDisplay: () => {
     const { rawLeaveRequests, filters } = get();
-    let tempFiltered = [...rawLeaveRequests]; // rawLeaveRequests is already scoped for teacher/admin
+    let tempFiltered = [...rawLeaveRequests];
 
     if (filters.facultyId) {
       tempFiltered = tempFiltered.filter(leave => leave.studentFacultyId === filters.facultyId);
@@ -193,7 +198,7 @@ const useLeaveApprovalStore = create<LeaveApprovalState>((set, get) => ({
     if (filters.class) {
       tempFiltered = tempFiltered.filter(leave => leave.studentClass === filters.class);
     }
-    if (filters.section) {
+    if (filters.section) { // filters.section is a section $id from the dropdown
       tempFiltered = tempFiltered.filter(leave => leave.studentSection === filters.section);
     }
     if (filters.searchText) {
@@ -205,6 +210,7 @@ const useLeaveApprovalStore = create<LeaveApprovalState>((set, get) => ({
       );
     }
     
+    console.log('[Store.applyFiltersAndPrepareDisplay] Filtered leaves count:', tempFiltered.length);
     set({
       processedAndFilteredLeaves: tempFiltered,
       totalProcessedLeavesCount: tempFiltered.length,
@@ -226,8 +232,7 @@ const useLeaveApprovalStore = create<LeaveApprovalState>((set, get) => ({
         } else {
           const currentSectionId = state.filters.section;
           if (currentSectionId) {
-            // `state.sections` is already scoped for teacher/admin.
-            const sectionData = state.sections.find(s => s.$id === currentSectionId);
+            const sectionData = state.sections.find(s => s.$id === currentSectionId); // state.sections is already scoped
             if (!sectionData || sectionData.class !== value) {
               newFilters.section = null;
             }
@@ -258,7 +263,7 @@ const useLeaveApprovalStore = create<LeaveApprovalState>((set, get) => ({
     set(state => {
       const leaveToUpdate = state.rawLeaveRequests.find(l => l.leaveId === leaveId && l.studentId === studentId);
       if (!leaveToUpdate) {
-          console.warn("Leave not found in raw requests for update:", leaveId, studentId);
+          console.warn("[Store.updateLeaveStatus] Leave not found in raw requests for update:", leaveId, studentId);
           return state;
       }
 

@@ -4,7 +4,7 @@ import useExamStore from '~/store/examStore';
 import ExamCard from './Exam/ExamCard';
 import ExamForm from './Exam/ExamForm';
 import Popover from './common/Popover'; // Assuming popover is at root
-import SearchBar from './common/SearchBar'; // Assuming SearchBar is in src/components
+import SearchBar from '../../common/SearchBar'; // Assuming SearchBar is in src/components
 import { Button, Spinner, Select, SelectItem } from '@heroui/react'; // Assuming components from heroui/react
 import { PlusIcon } from '@heroicons/react/20/solid';
 import { Exam } from 'types/models';

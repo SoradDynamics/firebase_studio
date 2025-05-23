@@ -1,7 +1,7 @@
 // src/components/leave/LeaveRequestCard.tsx
 import React from 'react';
 import { Leave } from 'types';
-import ActionButton from '../../../../common/ActionButton';
+import ActionButton from '../../../common/ActionButton';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
 
 interface LeaveRequestCardProps {

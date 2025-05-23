@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import useAssignClassTeacherStore from '~/store/assignClassTeacherStore';
 import SectionCard from './SectionCard';
-import CustomSelect, { SelectOption } from '../common/CustomSelect';
-import SearchBar from '../common/SearchBar'; // Assuming path
+import CustomSelect, { SelectOption } from '../../../common/CustomSelect';
+import SearchBar from '../../../common/SearchBar'; // Assuming path
 import { Drawer } from '../../../../common/Drawer'; // Assuming path
 import { Button } from '@heroui/react'; // For Drawer buttons
 import { EnrichedSection } from 'types';

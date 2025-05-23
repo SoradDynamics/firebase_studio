@@ -13,7 +13,7 @@ import React, {
   } from "@heroui/react";
   
   import ErrorMessage from "../common/ErrorMessage";
-  import SearchBar from "../common/SearchBar";
+  import SearchBar from "../../../common/SearchBar";
   import ActionButton from "../../../../common/ActionButton";
   import AttendanceTable from "./AttendanceTable";
   import toast, { Toaster } from "react-hot-toast";

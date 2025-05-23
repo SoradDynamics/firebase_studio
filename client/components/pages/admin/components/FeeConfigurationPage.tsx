@@ -1,7 +1,7 @@
 // src/pages/admin/FeeConfigurationPage.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Select, SelectItem, Spinner, Card, CardBody } from '@heroui/react';
-import SearchBar from './common/SearchBar'; // Adjust path
+import SearchBar from '../../common/SearchBar'; // Adjust path
 import FeeCard from './Fee/FeeCard';
 import FeeEditDrawer from './Fee/FeeEditDrawer';
 import { getFaculties, getFeeConfigsByFaculty, parseFeeDesc } from './Fee/service'; // Removed getSectionsByFaculty

@@ -11,7 +11,7 @@ import { useSectionStore } from "~/store/sectionStore";
 import { Faculty, Section } from "types";
 
 import ErrorMessage from "../common/ErrorMessage";
-import SearchBar from "../common/SearchBar";
+import SearchBar from "../../../common/SearchBar";
 import ActionButton from "../../../../common/ActionButton";
 import SectionTableRoute from "./stdSectionTable";
 

@@ -73,3 +73,16 @@ export interface Leave {
       sender: string; // logged-in user email
       date: string; // current ISO string
   }
+
+  export interface TeacherDocument {
+    id: string; // <<< YOUR CUSTOM ID FIELD
+    $id: string; // Appwrite's document ID
+    name: string;
+    email: string;
+    // other Appwrite fields if any
+    $collectionId: string;
+    $databaseId: string;
+    $createdAt: string;
+    $updatedAt: string;
+    $permissions: string[];
+  }
