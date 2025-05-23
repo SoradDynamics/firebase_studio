@@ -29,6 +29,8 @@ import FeeConfigurationPage from "./components/FeeConfigurationPage";
 import TeacherPage from "./components/Teacher";
 import ExamManagementPage from "./components/Exam";
 import RoutineManagement from "./components/Routine";
+import GalleryPage from "./components/Gallery/GalleryPage";
+import AdminLeaveApproval from "./components/Attendance/AdminLeaveApproval";
 
 // Define dummy components
 const DashboardComponent = () => <div><h2>Dashboard Component</h2><p>This is the  content.</p></div>;
@@ -68,6 +70,8 @@ export default function Layout() {
         { name: "Import Data", icon: ImportIcon, component:Std_Import },
 
         { name: "Attendance", icon: AdjustmentsHorizontalIcon, component: Attendance },
+        { name: "Leave", icon: AdjustmentsHorizontalIcon, component: AdminLeaveApproval },
+
       ],
     },
 
@@ -81,6 +85,7 @@ export default function Layout() {
     },
 
     { name: "Calendar", icon: CalendarIcon, component: Calender},
+    { name: "Gallery", icon: DocumentTextIcon, component: GalleryPage },
     { name: "Notification", icon:BellAlertIcon , component: Notification},
     { name: "Transport", icon: BusIcon,
       children:[

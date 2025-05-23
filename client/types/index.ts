@@ -51,3 +51,23 @@ export interface Driver {
   email: string;
   authUserId?: string | null;
 }
+
+
+
+///for gallery
+// src/types/index.ts
+import { Models } from 'appwrite';
+
+export interface GalleryItem extends Models.Document {
+  title: string;
+  fileIds: string[]; // Array of Appwrite file IDs
+  faculty: string;
+  // Appwrite automatically adds $id, $createdAt, $updatedAt, $permissions, $collectionId, $databaseId
+}
+
+export interface Faculty {
+  value: string;
+  label: string;
+}
+
+

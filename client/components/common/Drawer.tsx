@@ -8,7 +8,8 @@ import React, {
   } from 'react';
   import { createPortal } from 'react-dom';
   import { XMarkIcon } from '@heroicons/react/24/outline';
-
+  import PerfectScrollbar from "react-perfect-scrollbar";
+  import "react-perfect-scrollbar/dist/css/styles.css";
   // --- Types ---
 
   type DrawerPosition = 'left' | 'right';
@@ -202,8 +203,11 @@ import React, {
               </h2>
             </DrawerHeader>
           )}
+            <PerfectScrollbar options={{ suppressScrollX: true }}>
+          
           {/* Render provided children (Header, Body, Footer) */}
           {children}
+          </PerfectScrollbar>
         </div>
       </DrawerContext.Provider>,
       document.body
