@@ -8,6 +8,7 @@ import Parent from "./parent/Parent";
 import DriverComponent from "./driver/DriverLocation";
 import FaceDetection from "./Camera";
 import Teacher from "./teacher/Teacher";
+import Libriary from "./libriary/Libriary";
 export default function Home({
   user,
   setUser,
@@ -32,14 +33,12 @@ export default function Home({
     <div className="min-h-screen">
       <Toaster position="top-right" />
 
-      {/* 🔹 Show this div only for Parent users */}
       {user.isParent && <div><Parent/></div>}
+      {user.isLib && <div><Libriary/></div>}
 
-      {/* 🔹 Show this div only for Student users */}
       {user.isStudent && <div><Student/></div>}
       {user.isDriver && <div><DriverComponent/></div>}
       {user.isCam && <div><FaceDetection/></div>}
-      {/* 🔹 Show this div only for Admin users */}
       {user.isAdmin && 
       <div>
         <Admin/>

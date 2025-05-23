@@ -24,7 +24,8 @@ export default function Login({
   const [isLoading, setIsLoading] = useState(false); // Add isLoading state
 
   //validate email
-  const validateEmail = (username: string) => username.match(/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i);
+  const validateEmail = (username: string) =>
+    username.match(/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i);
 
   const isInvalid = React.useMemo(() => {
     if (username === "") return false;
@@ -48,9 +49,19 @@ export default function Login({
       const isAdmin = user.labels?.includes("admin");
       const isTeacher = user.labels?.includes("teacher");
       const isDriver = user.labels?.includes("driver");
-        const isCam = user.labels?.includes("camera");
+      const isCam = user.labels?.includes("camera");
+      const isLib = user.labels?.includes("library");
 
-      setUser({ ...user, isParent, isStudent, isAdmin, isTeacher, isDriver, isCam }); // Store role in state
+      setUser({
+        ...user,
+        isParent,
+        isStudent,
+        isAdmin,
+        isTeacher,
+        isDriver,
+        isCam,
+        isLib,
+      }); // Store role in state
 
       toast.success("Login successful!"); // ✅ Now it only shows when logging in
     } catch (error: any) {
@@ -62,7 +73,7 @@ export default function Login({
   };
   return (
     <div>
-            <Toaster position="top-right" />
+      <Toaster position="top-right" />
 
       <div className="flex min-h-screen justify-center items-center bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100">
         <div className="container relative bg-white/40 shadow-lg rounded-lg overflow-hidden md:flex md:w-[500px] mx-4 backdrop-blur-lg border border-white/50 max-w-[440px]">

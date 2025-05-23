@@ -29,3 +29,5 @@ export interface UserFilterData {
     class: string | null;
     section: string | null;
 }
+
+export type Document<T> = T & Models.Document;

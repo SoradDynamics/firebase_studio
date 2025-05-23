@@ -21,8 +21,9 @@ export default function Index() {
         const isTeacher = user.labels?.includes("teacher");
         const isDriver = user.labels?.includes("driver");
         const isCam = user.labels?.includes("camera");
+        const isLib = user.labels?.includes("library");
 
-        setUser({ ...user, isParent, isStudent, isAdmin, isTeacher, isDriver, isCam }); // Store role in state
+        setUser({ ...user, isParent, isStudent, isAdmin, isTeacher, isDriver, isCam, isLib }); // Store role in state
       }) // Remove success toast here
       .catch(() => setUser(null))
       .finally(() => setLoading(false));

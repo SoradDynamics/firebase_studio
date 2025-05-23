@@ -9,7 +9,7 @@
 // export default client;
 
 // ~/utils/appwrite.ts
-import { Client, Account, ID, Databases, Storage, Query, Functions } from "appwrite";
+import { Client, Account, ID, Databases, Storage, Query, Functions, Models } from "appwrite";
 
 const client = new Client();
 
@@ -46,6 +46,7 @@ export const storage = new Storage(client);
 export const functions = new Functions(client); // <<< Initialize and export Functions
 export default client;
 
+export type Document<T> = T & Models.Document;
 
 
 
