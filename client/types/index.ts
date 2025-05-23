@@ -5,6 +5,7 @@ export type IconSvgProps = SVGProps<SVGSVGElement> & {
 };
 
 export * from './leave_approve';
+export * from './class_teacher';
 
 // ~/types/index.ts
 export interface Faculty {

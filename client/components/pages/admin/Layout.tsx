@@ -31,6 +31,7 @@ import ExamManagementPage from "./components/Exam";
 import RoutineManagement from "./components/Routine";
 import GalleryPage from "./components/Gallery/GalleryPage";
 import ApproveLeavePage from "./components/LeaveApprove/ApproveLeavePage";
+import AssignClassTeacherPage from "./components/ClassTeacher/AssignClassTeacherPage";
 // import AdminLeaveApproval from "./components/Attendance/AdminLeaveApproval";
 
 // Define dummy components
@@ -81,7 +82,7 @@ export default function Layout() {
       icon: UserCircleIcon,
       children: [
         { name: "Teach_General", icon: DocumentTextIcon, component: TeacherPage },
-        // { name: "Section", icon: BookIcon, component: Section },
+        { name: "ClassTeacher", icon: BookIcon, component: AssignClassTeacherPage },
       ]
     },
 
