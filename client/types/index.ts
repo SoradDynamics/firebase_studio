@@ -4,6 +4,8 @@ export type IconSvgProps = SVGProps<SVGSVGElement> & {
   size?: number;
 };
 
+export * from './leave_approve';
+
 // ~/types/index.ts
 export interface Faculty {
   $id: string;
