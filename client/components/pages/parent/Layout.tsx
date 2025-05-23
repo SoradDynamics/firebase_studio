@@ -14,6 +14,7 @@ import Leave from "./components/Leave/Leave";
 import { icon } from "leaflet";
 import ParentExamViewPage from "./components/Exam";
 import ParentAttendancePage from "./components/Attendance/ParentAttendancePage";
+import ViewStudentRoutinePage from "./components/Routine/ViewStudentRoutinePage";
 
 
 // Define dummy components (as before)
@@ -59,6 +60,8 @@ export default function Layout() {
     { name: "Student", icon: HomeIcon, component: StudentsComponent },
     { name: "Exam", icon: HomeIcon, component:ParentExamViewPage },
     { name: "Attendance", icon: HomeIcon, component:ParentAttendancePage },
+
+    { name: "Routine", icon: HomeIcon, component:ViewStudentRoutinePage },
     {
       name: "Students",
       icon: UsersIcon,
