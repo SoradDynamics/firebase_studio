@@ -1,14 +1,15 @@
 // src/components/library/BookForm.tsx
 import React, { useEffect, useState } from 'react';
-import { Input, Button } from '@heroui/react'; // Assuming NumberInput is part of Input or use type="number"
-import CustomSelect, { SelectOption } from '../../../common/CustomSelect'; // Your CustomSelect
-import type { Book, BookGenre } from 'types/library';
-import type { Document } from 'types/appwrite';
+import { Input, Button } from '@heroui/react';
+import CustomSelect, { SelectOption } from '../../../common/CustomSelect';
+import type { Book } from 'types/library'; // Book type now has year as string
+import type { Document as AppwriteDocument } from 'types/appwrite';
 import { useLibraryStore } from '~/store/libraryStore';
 
 interface BookFormProps {
-  initialData?: Document<Book> | null;
-  onSubmit: (data: Omit<Book, '$id' | 'availableCopies' | 'genreName'>) => Promise<void>;
+  initialData?: AppwriteDocument<Book> | null;
+  // Ensure the Omit list matches the Book type and what's auto-generated/handled elsewhere
+  onSubmit: (data: Omit<Book, '$id' | 'availableCopies' | 'genreName' | '$collectionId' | '$databaseId' | '$createdAt' | '$updatedAt' | '$permissions'>) => Promise<void>;
   onClose: () => void;
   isSubmitting: boolean;
 }
@@ -17,28 +18,29 @@ interface BookFormState {
   customBookId: string;
   name: string;
   author: string;
-  year: string; // Keep as string for input, parse on submit
+  year: string; // Year is now a simple string input
   genreId: string | null;
   location: string;
-  totalCopies: string; // Keep as string for input
+  totalCopies: string; // Keep as string for input, parse on submit for this field
 }
 
 interface BookFormErrors {
   customBookId?: string;
   name?: string;
   author?: string;
-  year?: string;
+  // No specific year error, as it's free text. Could add max length if desired.
   genreId?: string;
   totalCopies?: string;
 }
 
 const BookForm: React.FC<BookFormProps> = ({ initialData, onSubmit, onClose, isSubmitting }) => {
   const { genres, fetchGenres, isLoadingGenres } = useLibraryStore();
+  
   const [formData, setFormData] = useState<BookFormState>({
     customBookId: '',
     name: '',
     author: '',
-    year: '',
+    year: '', // Initialize as empty string
     genreId: null,
     location: '',
     totalCopies: '',
@@ -57,13 +59,12 @@ const BookForm: React.FC<BookFormProps> = ({ initialData, onSubmit, onClose, isS
         customBookId: initialData.customBookId || '',
         name: initialData.name || '',
         author: initialData.author || '',
-        year: initialData.year?.toString() || '',
+        year: initialData.year || '', // Directly use the string value
         genreId: initialData.genreId || null,
         location: initialData.location || '',
         totalCopies: initialData.totalCopies?.toString() || '',
       });
     } else {
-      // Reset form for new entry
       setFormData({
         customBookId: '',
         name: '',
@@ -77,9 +78,13 @@ const BookForm: React.FC<BookFormProps> = ({ initialData, onSubmit, onClose, isS
   }, [initialData]);
 
   const handleInputChange = (field: keyof BookFormState, value: string | null) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    // For 'year', allow any string. For 'totalCopies', allow only numbers for the input string.
+    if (field === 'totalCopies' && value !== null && !/^\d*$/.test(value)) {
+        return; // Prevent non-numeric input for totalCopies
+    }
+    setFormData((prev) => ({ ...prev, [field]: value === null ? '' : value })); // Ensure value is not null for string fields
+    if (errors[field as keyof BookFormErrors]) { // Type assertion needed here
+      setErrors((prev) => ({ ...prev, [field as keyof BookFormErrors]: undefined }));
     }
   };
 
@@ -94,12 +99,13 @@ const BookForm: React.FC<BookFormProps> = ({ initialData, onSubmit, onClose, isS
     if (!formData.name.trim()) newErrors.name = 'Book name is required.';
     if (!formData.author.trim()) newErrors.author = 'Author is required.';
     if (!formData.genreId) newErrors.genreId = 'Genre is required.';
+    
     if (!formData.totalCopies.trim() || isNaN(Number(formData.totalCopies)) || Number(formData.totalCopies) < 0) {
-      newErrors.totalCopies = 'Valid number of copies is required (must be 0 or more).';
+      newErrors.totalCopies = 'Valid number of copies is required (0 or more).';
     }
-    if (formData.year.trim() && (isNaN(Number(formData.year)) || Number(formData.year) <= 0 || Number(formData.year) > new Date().getFullYear() + 5 )) {
-        newErrors.year = 'Enter a valid year.';
-    }
+    // No validation for formData.year as it's free text
+    // Can add maxLength validation if needed:
+    // if (formData.year.length > 50) newErrors.yearInput = 'Year text is too long (max 50 chars).';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -109,14 +115,16 @@ const BookForm: React.FC<BookFormProps> = ({ initialData, onSubmit, onClose, isS
     e.preventDefault();
     if (!validate()) return;
 
-    const bookDataToSubmit: Omit<Book, '$id' | 'availableCopies' | 'genreName'> = {
+    // Ensure Omit list in onSubmit prop matches this structure and Book type
+    const bookDataToSubmit = {
       customBookId: formData.customBookId,
       name: formData.name,
       author: formData.author,
-      year: formData.year ? parseInt(formData.year, 10) : null,
+      year: formData.year.trim() ? formData.year.trim() : null, // Send null if empty, otherwise trimmed string
       genreId: formData.genreId!,
-      location: formData.location,
+      location: formData.location.trim() ? formData.location.trim() : '', // Send empty string if only spaces
       totalCopies: parseInt(formData.totalCopies, 10),
+      // availableCopies will be set by the service/store
     };
     await onSubmit(bookDataToSubmit);
   };
@@ -133,7 +141,7 @@ const BookForm: React.FC<BookFormProps> = ({ initialData, onSubmit, onClose, isS
         isRequired
         variant="bordered"
         className="w-full"
-        isDisabled={!!initialData || isSubmitting} // Disable if editing, ID shouldn't change
+        isDisabled={!!initialData || isSubmitting}
         description={initialData ? "Book ID cannot be changed after creation." : ""}
       />
       <Input
@@ -162,23 +170,23 @@ const BookForm: React.FC<BookFormProps> = ({ initialData, onSubmit, onClose, isS
       />
        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
-            label="Publication Year"
-            placeholder="e.g., 2023"
-            type="number"
+            label="Publication Year / Period"
+            placeholder="e.g., 2023, 2078 BS, Ancient, c. 1950"
+            type="text" // Changed to text
             value={formData.year}
             onValueChange={(val) => handleInputChange('year', val)}
-            isInvalid={!!errors.year}
-            errorMessage={errors.year}
+            // isInvalid={!!errors.yearInput} // No specific validation, maybe length
+            // errorMessage={errors.yearInput}
             variant="bordered"
             className="w-full"
             isDisabled={isSubmitting}
-            min="1000" // Basic HTML5 validation
-            max={new Date().getFullYear() + 5} // Basic HTML5 validation
+            maxLength={50} // Optional: limit length
         />
         <Input
             label="Total Copies"
             placeholder="e.g., 10"
-            type="number" // Use number type for numeric input
+            type="text" // Keep as text to allow custom numeric input handling
+            inputMode="numeric" // Provides numeric keyboard on mobile
             value={formData.totalCopies}
             onValueChange={(val) => handleInputChange('totalCopies', val)}
             isInvalid={!!errors.totalCopies}
@@ -187,7 +195,7 @@ const BookForm: React.FC<BookFormProps> = ({ initialData, onSubmit, onClose, isS
             variant="bordered"
             className="w-full"
             isDisabled={isSubmitting}
-            min="0"
+            // min="0" // HTML5 min doesn't work well if type="text" for custom handling
         />
       </div>
       <CustomSelect
@@ -195,7 +203,7 @@ const BookForm: React.FC<BookFormProps> = ({ initialData, onSubmit, onClose, isS
         placeholder={isLoadingGenres ? "Loading genres..." : "Select genre"}
         options={genreOptions}
         value={formData.genreId}
-        onChange={(selectedId) => handleInputChange('genreId', selectedId)}
+        onChange={(selectedId) => handleInputChange('genreId', selectedId as string | null)} // Cast needed
         className="w-full"
         disabled={isLoadingGenres || isSubmitting}
       />
@@ -210,7 +218,6 @@ const BookForm: React.FC<BookFormProps> = ({ initialData, onSubmit, onClose, isS
         className="w-full"
         isDisabled={isSubmitting}
       />
-
 
       <div className="flex justify-end space-x-3 pt-4">
         <Button type="button" color="default" variant="flat" onPress={onClose} isDisabled={isSubmitting}>

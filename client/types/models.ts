@@ -1,151 +1,47 @@
-// /types/models.ts
-//for leave amangement student, parent
-import { Models } from 'appwrite';
+// src/types/models.ts (ensure SubjectDetail is also defined here)
 
-// Base Appwrite Document type
-export interface AppwriteDocument extends Models.Document {
-  // Add any common custom fields if necessary, though usually not needed here
-}
-
-export interface Student extends AppwriteDocument {
+export interface SubjectDetail {
   name: string;
-  class: string; // Assuming this is a class ID referencing coll-class (not shown in your schema)
-                 // or just a string like "Grade 10"
-  facultyId?: string; // Assuming it can be optional or linked
-  // section: string; // Assuming this is a section ID or name
-  stdEmail?: string;
-  parentId: string;
+  date: string;       // Exam date for this subject (ISO String AD)
+  theoryFM: number;
+  theoryPM: number;
+  hasPractical: boolean;
+  practicalFM?: number | null;
+  practicalPM?: number | null;
 }
 
-export interface Parent extends AppwriteDocument {
-  name: string;
-  email: string;
-  
-}
-
-// You can define Section and Faculty too if needed for other parts,
-// but they are not directly used in this specific parent-student view component logic.
-// export interface Section extends AppwriteDocument {
-//   name: string;
-//   subjects?: string[];
-//   class: string; // class ID
-//   facultyId: string; // faculty ID
-// }
-
-// export interface Faculty extends AppwriteDocument {
-//   name: string;
-//   classes?: string[]; // array of class IDs
-// }
-
-
-export type LeaveStatus = 'pending' | 'validated' | 'rejected' | 'approved' | 'cancelled';
-
-export interface LeaveEntry {
-  leaveId: string; // Unique ID for this specific leave entry
+export interface Exam {
+  $id: string;
   title: string;
-  reason: string;
-  periodType: 'today' | 'halfDay' | 'tomorrow' | 'dateRange';
-  appliedAt: string; // ISO Date string
-  status: LeaveStatus;
-  date?: string;      // BS Date YYYY-MM-DD (for today, halfDay, tomorrow)
-  fromDate?: string;  // BS Date YYYY-MM-DD (for dateRange)
-  toDate?: string;    // BS Date YYYY-MM-DD (for dateRange)
-  // Optional fields for actions
-  validatedAt?: string; // ISO Date string
-  rejectedAt?: string;  // ISO Date string
-  rejectionReason?: string; // If rejected by parent/admin
-  approvedAt?: string;  // ISO Date string (by admin)
-  approvedBy?: string;  // Admin ID
+  type: string;
+  desc: string;
+  faculty: string[];
+  class: string[];
+  section: string[];
+
+  subjectDetails: SubjectDetail[]; // For frontend use
+
+  // Appwrite might return subjectDetails_json, which we'll parse into subjectDetails
+  // We don't strictly need to add subjectDetails_json here if the store handles the mapping.
+  // For clarity, the store will transform it.
+
+  $createdAt?: string;
+  $updatedAt?: string;
+  // ... other Appwrite fields
 }
 
-// Update Student interface if not already done
-export interface Student extends Models.Document { // Assuming Document is Appwrite's base
-  id?: string; // Your custom ID if you have one, $id is Appwrite's
+export interface Faculty {
   $id: string;
   name: string;
+  classes: string[];
+  // ... other properties
+}
+
+export interface Section {
+  $id: string;
+  name: string;
+  subjects: string[]; // Names of subjects taught in this section
   class: string;
-  facultyId?: string;
-  section?: string;
-  stdEmail?: string;
-  parentId: string; // This is the Appwrite $id of the parent document
-  absent?: string[]; // Assuming array of ISO date strings
-  leave?: string[];  // Array of JSON strings, each string is a LeaveEntry
-  // other student fields
-}
-
-// Calendar types
-export interface DayData {
-  day: number; // Nepali day number
-  en: string;  // English date "YYYY/M/D"
-  np: string;  // Nepali date "YYYY/M/D" (optional, might be redundant if day gives np day)
-  tithi?: string;
-  dayOfWeek: number; // 1 (Sun) to 7 (Sat)
-  // Add other properties from your calendar JSON if needed
-}
-export interface MonthData {
-  month: number; // Nepali month number
-  year: number; // Nepali year (redundant if year is key in CalendarData)
-  name: string; // Nepali month name
-  days: DayData[];
-  ad_month_start?: string; // Optional AD month start
-  ad_month_end?: string;   // Optional AD month end
-}
-export interface CalendarData {
-  [year: string]: MonthData[]; // Year as key (e.g., "2081")
-}
-
-export interface MarkedDate {
-  bsDate: string;
-  type: 'absent' | 'leave' | string; // Added string to allow other types
-  details?: string;
-}
-
-
-
-
-// src/types/models.ts
-// Define types based on your Appwrite schema
-
-
-
-export interface Exam extends AppwriteDocument {
-    title: string;
-    type: string; // Manual input string
-    faculty: string[]; // Array of faculty names (strings)
-    class: string[]; // Array of class names (strings)
-    desc: string;
-    section: string[]; // Array of section names (strings)
-    subjectDates: string[]; // Array of strings like "Subject Name|YYYY-MM-DDTHH:mm:ss.sssZ"
-}
-
-export interface Faculty extends AppwriteDocument {
-    name: string;
-    classes: string[]; // Array of class names (strings)
-}
-
-export interface Section extends AppwriteDocument {
-    name: string;
-    subjects: string[]; // Array of subject names (strings)
-    class: string; // Single class name (string)
-    facultyId: string; // Single faculty ID (string)
-}
-
-export interface Student extends AppwriteDocument {
-    // id: string; // <-- Ensure this attribute exists in your coll-student schema
-    name: string;
-    class: string;
-    // facultyId: string;
-    // section: string;
-    // stdEmail: string;
-    // parentId?: string;
-    absent?: string[];
-    leave?: string[];
-    library?: string[]; // Or fee[] - match your actual schema
-}
-
-export interface Parent extends AppwriteDocument {
-    name: string;
-    email: string;
-    contact: string[];
-    students: string[]; // Array of student IDs or names? Assuming student IDs for linkage
+  facultyId: string;
+  // ... other properties
 }

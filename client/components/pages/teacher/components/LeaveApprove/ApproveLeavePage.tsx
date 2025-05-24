@@ -2,31 +2,30 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Button, Input } from '@heroui/react';
 import { ArrowDownTrayIcon, XCircleIcon as CancelIcon, ArrowPathIcon as RefreshIcon } from '@heroicons/react/24/outline';
+import { createNotificationEntry, getTomorrowDateString, NotificationData } from '~/utils/notification'; // Adjust path if necessary
 
 import useLeaveApprovalStore from '~/store/teacherleaveApprovalStore';
 import {
   getAllStudents,
   getAllFaculties,
-  getAllSections, // Fetches all sections from DB for admin/general use
-  getTeacherByEmail,
-  getSectionsByClassTeacherCustomId, // Fetches sections based on teacher's custom ID
+  getAllSections,
   updateStudentLeaveData,
   createNotification,
-  getCurrentUserEmail
-} from './appwriteService'; // Assuming this path is correct relative to your project structure
+  getTeacherByEmail,
+  getSectionsByClassTeacherId,
+  getStudentsBySectionDetails, // Updated function name
+} from './appwriteService';
+import { getCurrentUserEmail } from '~/utils/appwrite';
+
 import LeaveRequestCard from '../../../common/LeaveApprove/LeaveRequestCard';
 import SearchBar from '../../../common/SearchBar';
 import Popover from '../../../common/PopoverRed';
-import ActionButton from '../../../../common/ActionButton'; // Assuming this path is correct
+import ActionButton from '../../../../common/ActionButton';
 import CustomSelect, { SelectOption } from '../../../common/CustomSelect';
 import { StudentDocument, Leave, ModifiedLeave, NotificationPayload, TeacherDocument, SectionDocument } from 'types';
 
 const ApproveLeavePage: React.FC = () => {
   const {
-    currentUserRole,
-    teacherDetails,
-    // teacherAssignedSectionIds, // This is now primarily for the store to know $ids. Student query uses custom IDs.
-    teacherAssignedSectionsData, // Used for displaying assigned sections & for filter dropdowns
     displayableLeaveRequests,
     totalProcessedLeavesCount,
     currentlyDisplayedCount,
@@ -35,11 +34,14 @@ const ApproveLeavePage: React.FC = () => {
     isFetchingMore,
     error,
     filters,
-    faculties, // Scoped by store based on role
-    sections,  // Scoped by store based on role (these are teacher's assigned sections for teacher role)
-    classes,   // Scoped by store based on role
+    faculties, // From store: Array of FacultyDocument
+    sections,  // From store: Array of SectionDocument (scoped for teacher)
+    classes,   // From store: Array of class name strings
+    currentUserRole,
+    teacherAssignedSectionIds, // From store: Array of teacher's section $IDs
+    allStudents, // From store: Array of StudentDocument (scoped for teacher)
+    setLoading,
     setError,
-    setInitialData,
     setFilter,
     updateLeaveStatus,
     resetModifications,
@@ -51,12 +53,10 @@ const ApproveLeavePage: React.FC = () => {
 
   const [isConfirmPopoverOpen, setIsConfirmPopoverOpen] = useState(false);
   const [rejectionReasonPrompt, setRejectionReasonPrompt] = useState<{ leaveId: string; studentId: string; isOpen: boolean }>({
-    leaveId: '',
-    studentId: '',
-    isOpen: false,
+    leaveId: '', studentId: '', isOpen: false,
   });
   const [currentRejectionReason, setCurrentRejectionReason] = useState('');
-  const [isApplyingChanges, setIsApplyingChanges] = useState(false); // Local state for apply/refresh button visual
+  const [isApplyingChanges, setIsApplyingChanges] = useState(false);
 
   const observer = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useCallback((node: HTMLElement | null) => {
@@ -71,115 +71,139 @@ const ApproveLeavePage: React.FC = () => {
   }, [isLoading, isFetchingMore, loadMoreLeaves, currentlyDisplayedCount, totalProcessedLeavesCount]);
 
   const fetchData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setIsApplyingChanges(true);
-    } else {
-      if (!useLeaveApprovalStore.getState().isLoading) { // Ensure store loading is active for initial fetch
-        useLeaveApprovalStore.getState().setLoading(true);
-      }
-    }
-    setError(null); // Clear previous errors
-    console.log('[ApproveLeavePage.fetchData] Starting data fetch...');
+    const isStoreInitiallyEmpty = !useLeaveApprovalStore.getState().allStudents.length;
+    const isInitialLoad = isStoreInitiallyEmpty && !isRefresh;
+
+    if (isInitialLoad) setLoading(true);
+    else if (isRefresh) setIsApplyingChanges(true);
+    setError(null);
+    console.log("[FetchData] Starting data fetch (v3 - student.section is name)...");
 
     try {
-      const userEmail = await getCurrentUserEmail();
-      let teacherDoc: TeacherDocument | null = null;
-      let sectionValuesForStudentQuery: string[] = []; // Stores CUSTOM section IDs if that's what student.section uses
-      let fetchedSectionsForTeacher: SectionDocument[] = []; // Full section docs for teacher
-      let studentsForStore: StudentDocument[];
-
-      if (userEmail) {
-        teacherDoc = await getTeacherByEmail(userEmail);
-        console.log('[ApproveLeavePage.fetchData] Teacher Document:', teacherDoc ? { customId: teacherDoc.id, name: teacherDoc.name, email: teacherDoc.email, appwriteId: teacherDoc.$id } : null);
-
-        if (teacherDoc && teacherDoc.id) { // Teacher exists and has a custom ID
-          fetchedSectionsForTeacher = await getSectionsByClassTeacherCustomId(teacherDoc.id);
-          console.log('[ApproveLeavePage.fetchData] Sections linked to teacher (by custom teacher ID):', fetchedSectionsForTeacher.map(s => ({ name: s.name, customSectionId: s.id, appwriteSectionId: s.$id, class_teacher_attr: s.class_teacher })));
-
-          if (fetchedSectionsForTeacher.length > 0) {
-            // **** IMPORTANT ASSUMPTION: coll-student.section stores the CUSTOM ID of the section (coll-section.id) ****
-            // If coll-student.section stores coll-section.$id (Appwrite ID), use .map(s => s.$id) instead.
-            sectionValuesForStudentQuery = fetchedSectionsForTeacher.map(s => s.id); // Using custom section ID (from coll-section.id)
-            console.log('[ApproveLeavePage.fetchData] Using these CUSTOM section IDs (from coll-section.id) for student query:', sectionValuesForStudentQuery);
-          } else {
-            console.log('[ApproveLeavePge.fetchData] Teacher is assigned to 0 sections based on custom ID link.');
-            // sectionValuesForStudentQuery remains empty, getAllStudents will correctly return []
-          }
-          
-          studentsForStore = await getAllStudents(sectionValuesForStudentQuery);
-          console.log('[ApproveLeavePage.fetchData] Students fetched for teacher (querying student.section with custom section IDs):', studentsForStore.map(s => ({ name: s.name, student_section_attr: s.section })));
-
-        } else { 
-            if (teacherDoc && !teacherDoc.id) {
-                console.warn(`[ApproveLeavePage.fetchData] Teacher ${userEmail} found, but missing custom 'id' attribute needed for section linking. Treating as admin.`);
-            } else if (!teacherDoc) {
-                console.log(`[ApproveLeavePage.fetchData] No teacher document found for email ${userEmail}. Treating as admin.`);
-            }
-            studentsForStore = await getAllStudents(); // No specific section values (undefined), so fetch all for admin
-            console.log('[ApproveLeavePage.fetchData] Fetched all students (admin context or issue with teacher data):', studentsForStore.length);
+        const userEmail = await getCurrentUserEmail();
+        console.log("[FetchData] Current user email:", userEmail);
+        if (!userEmail) {
+            setError("Unable to identify current user. Please log in again.");
+            if (isInitialLoad) setLoading(false); if (isRefresh) setIsApplyingChanges(false);
+            return;
         }
-      } else { 
-        console.log('[ApproveLeavePage.fetchData] No user email found. Fetching all students.');
-        studentsForStore = await getAllStudents(); // Undefined sectionValuesForStudentQuery fetches all
-      }
-      
-      const [allFacultiesFromDB, allSectionsFromDBGlobal] = await Promise.all([
-        getAllFaculties(),
-        getAllSections(), // Fetch all sections globally for admin context / potential general use for filters
-      ]);
-      
-      setInitialData({
-        students: studentsForStore,
-        allFacultiesFromDB,
-        allSectionsFromDB: allSectionsFromDBGlobal,
-        userEmail,
-        teacherDoc,
-        // For the store, teacherAssignedSectionIds will store the Appwrite $ids of the sections.
-        // The actual student filtering was done using the correct ID type (custom or $id based on your student.section).
-        assignedSectionIdsForTeacher: fetchedSectionsForTeacher.map(s => s.$id), 
-        assignedSectionsDataForTeacher: fetchedSectionsForTeacher, // Full section data for display & UI logic
-      });
-      console.log('[ApproveLeavePage.fetchData] Data setting to store complete.');
+
+        let teacherDoc: TeacherDocument | null = null;
+        let sectionsDataForTeacherUiFilter: SectionDocument[] = []; // Full SectionDocument objects where teacher is class_teacher
+        let studentSectionNamesForQuery: string[] = [];
+        let studentFacultyIdsForQuery: string[] = []; // faculty $IDs from teacher's assigned sections
+        let studentClassNamesForQuery: string[] = [];   // class names from teacher's assigned sections
+
+        let studentsData: StudentDocument[] = [];
+        let isTeacherContext = false;
+
+        try {
+            teacherDoc = await getTeacherByEmail(userEmail);
+            console.log("[FetchData] Teacher document by email:", teacherDoc ? {name: teacherDoc.name, id: teacherDoc.id, $id: teacherDoc.$id} : null);
+        } catch (e) { console.warn("[FetchData] Error fetching teacher by email:", e); teacherDoc = null; }
+
+        if (teacherDoc && teacherDoc.id) { // teacherDoc.id is the custom ID
+            console.log(`[FetchData] Teacher identified: ${teacherDoc.name}, Custom Teacher ID: ${teacherDoc.id}`);
+            try {
+                const teacherRawSections = await getSectionsByClassTeacherId(teacherDoc.id); // Fetches SectionDocument[]
+                console.log("[FetchData] Raw sections where teacher is class_teacher:", teacherRawSections.length);
+
+                if (teacherRawSections && teacherRawSections.length > 0) {
+                    isTeacherContext = true;
+                    sectionsDataForTeacherUiFilter = teacherRawSections; // These are SectionDocument objects
+
+                    studentSectionNamesForQuery = teacherRawSections.map(sec => sec.name).filter(Boolean);
+                    studentFacultyIdsForQuery = [...new Set(teacherRawSections.map(sec => sec.facultyId).filter(Boolean))];
+                    studentClassNamesForQuery = [...new Set(teacherRawSections.map(sec => sec.class).filter(Boolean))];
+
+                    console.log("[FetchData] Details for student query (derived from teacher's sections):");
+                    console.log("  Section Names:", studentSectionNamesForQuery);
+                    console.log("  Faculty $IDs:", studentFacultyIdsForQuery);
+                    console.log("  Class Names:", studentClassNamesForQuery);
+
+                    if (studentSectionNamesForQuery.length > 0) {
+                        studentsData = await getStudentsBySectionDetails(
+                            studentSectionNamesForQuery,
+                            studentFacultyIdsForQuery.length > 0 ? studentFacultyIdsForQuery : undefined,
+                            studentClassNamesForQuery.length > 0 ? studentClassNamesForQuery : undefined
+                        );
+                        console.log(`[FetchData] STUDENTS MATCHED for teacher: ${studentsData.length} students.`);
+                        if (studentsData.length > 0 && studentsData.length < 3) {
+                             console.log("[FetchData] Sample matched students for teacher:", studentsData.map(s => ({ name: s.name, section: s.section, facultyId: s.facultyId, class: s.class })));
+                        }
+                    } else {
+                        console.log("[FetchData] Teacher is class teacher, but no section names derived. No students fetched this way.");
+                        studentsData = [];
+                    }
+                } else {
+                    console.log("[FetchData] Teacher found, but not assigned as class_teacher to any sections.");
+                    studentsData = []; // No students if not class teacher of any section
+                    if (teacherDoc) isTeacherContext = true; // Still a teacher, just has no sections to manage leaves for
+                }
+            } catch (sectionError) {
+                console.error("[FetchData] Error during teacher's section/student data retrieval:", sectionError);
+                studentsData = [];
+                if (teacherDoc) isTeacherContext = true; // Error occurred, but context is still teacher
+            }
+        } else {
+             console.log("[FetchData] No teacher document found for this email or teacher lacks custom 'id'. Assuming admin role for data fetching.");
+        }
+
+        // Fallback to admin if not a teacher context with specific sections or if user is not a teacher
+        if (!isTeacherContext && !teacherDoc) { // Only if definitely not a teacher (or teacher not found for email)
+            console.log("[FetchData] Admin path: Fetching all students.");
+            studentsData = await getAllStudents();
+            console.log(`[FetchData] Admin Path: Total students fetched: ${studentsData.length}`);
+        }
+        
+        const [allFacultiesFromDB, allSectionsFromDB] = await Promise.all([
+            getAllFaculties(),
+            getAllSections(),
+        ]);
+        console.log(`[FetchData] Total faculties from DB: ${allFacultiesFromDB.length}, Total sections from DB: ${allSectionsFromDB.length}`);
+        
+        useLeaveApprovalStore.getState().setInitialData({
+            students: studentsData, // Scoped for teachers, or all for admins
+            allFacultiesFromDB,
+            allSectionsFromDB,
+            userEmail,
+            teacherDoc: teacherDoc,
+            assignedSectionIdsForTeacher: sectionsDataForTeacherUiFilter.map(s => s.$id), // Store $IDs of teacher's sections
+            assignedSectionsDataForTeacher: sectionsDataForTeacherUiFilter, // Store full SectionDocument objects
+        });
 
     } catch (err) {
-        console.error("[ApproveLeavePage.fetchData] Error fetching initial data:", err);
-        setError(`Failed to load data: ${err instanceof Error ? err.message : String(err)}`);
+        console.error("[FetchData] Overall error in fetchData pipeline:", err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load data.';
+        setError(errorMessage);
     } finally {
-      if (isRefresh) setIsApplyingChanges(false);
-      // setLoading(false) is now primarily handled by store's setInitialData or setError
-      console.log('[ApproveLeavePage.fetchData] Fetch data process finished.');
+        if (isInitialLoad) setLoading(false);
+        if (isRefresh) setIsApplyingChanges(false);
+        console.log("[FetchData] Data fetch process complete.");
     }
-  }, [setError, setInitialData]); // Dependencies for useCallback
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setLoading, setError]); // Store's setInitialData handles the rest
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]); // Initial fetch and when fetchData itself changes (which it won't unless deps change)
+  }, [fetchData]);
 
   const handleRefresh = () => {
     if (hasPendingChanges()) {
-        if (!window.confirm("You have unsaved changes. Are you sure you want to refresh and discard them?")) {
-            return;
-        }
+        if (!window.confirm("You have unsaved changes. Are you sure you want to refresh and discard them?")) return;
         resetModifications();
     }
     fetchData(true);
   };
 
-  const handleApprove = (leaveId: string, studentId: string) => {
-    updateLeaveStatus(leaveId, studentId, 'approved');
-  };
-
+  const handleApprove = (leaveId: string, studentId: string) => updateLeaveStatus(leaveId, studentId, 'approved');
   const handleRequestReject = (leaveId: string, studentId: string) => {
     setRejectionReasonPrompt({ leaveId, studentId, isOpen: true });
-    const currentLeave = getLeaveById(leaveId);
-    setCurrentRejectionReason(currentLeave?.rejectionReason || '');
+    setCurrentRejectionReason(getLeaveById(leaveId)?.rejectionReason || '');
   };
-
   const confirmReject = () => {
-    if (!rejectionReasonPrompt.leaveId) return;
-    if (!currentRejectionReason.trim()) {
-        alert("Rejection reason cannot be empty.");
-        return;
+    if (!rejectionReasonPrompt.leaveId || !currentRejectionReason.trim()) {
+        alert("Rejection reason cannot be empty."); return;
     }
     updateLeaveStatus(rejectionReasonPrompt.leaveId, rejectionReasonPrompt.studentId, 'rejected', currentRejectionReason);
     setRejectionReasonPrompt({ leaveId: '', studentId: '', isOpen: false });
@@ -197,348 +221,232 @@ const ApproveLeavePage: React.FC = () => {
 
     let successCount = 0;
     let errorCount = 0;
-    const studentsToUpdate: Map<string, { doc: StudentDocument, newLeaveArray: string[] }> = new Map();
-    const notificationsToSend: NotificationPayload[] = [];
-    
-    const senderEmail = useLeaveApprovalStore.getState().currentUserEmail || 
-                        (teacherDetails ? teacherDetails.email : 'admin@example.com');
 
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const studentsToUpdate = new Map<string, { doc: StudentDocument, newLeaveArray: string[] }>();
+    // const notificationsToSend: NotificationPayload[] = []; // Old type, replace with NotificationData from new service
+    const notificationPayloads: NotificationData[] = []; // Using the new type
 
-    const currentScopedStudents = useLeaveApprovalStore.getState().allStudents; // This list is already scoped
+    const loggedInUserEmail = await getCurrentUserEmail(); // Get email once
+    if (!loggedInUserEmail) {
+        console.error("[ApplyChanges] Could not get logged-in user email for notification sender.");
+        // Decide if this is a critical error. For now, we'll proceed but sender might be missing.
+        // Or, set a default sender: const senderEmail = loggedInUserEmail || 'system@example.com';
+        setError("Could not identify current user for sending notifications. Please try again.");
+        setIsApplyingChanges(false);
+        return;
+    }
+    const senderEmail = loggedInUserEmail;
+
+    const roleName = useLeaveApprovalStore.getState().currentUserRole === 'teacher'
+        ? (useLeaveApprovalStore.getState().teacherDetails?.name || 'Class Teacher')
+        : 'Admin';
+    const allStudentsFromStore = useLeaveApprovalStore.getState().allStudents;
+
+    const tomorrowStr = getTomorrowDateString(); // Get tomorrow's date string
 
     for (const modifiedLeave of modifiedLeaves.values()) {
-      let studentDocEntry = studentsToUpdate.get(modifiedLeave.studentId);
-      if (!studentDocEntry) {
-        const originalStudentDoc = currentScopedStudents.find(s => s.$id === modifiedLeave.studentId);
-        if (originalStudentDoc) {
-          const copiedDoc = JSON.parse(JSON.stringify(originalStudentDoc));
-          studentDocEntry = { doc: copiedDoc, newLeaveArray: [...copiedDoc.leave] };
-          studentsToUpdate.set(modifiedLeave.studentId, studentDocEntry);
+      let studentEntry = studentsToUpdate.get(modifiedLeave.studentId);
+      if (!studentEntry) {
+        const originalStudent = allStudentsFromStore.find(s => s.$id === modifiedLeave.studentId);
+        if (originalStudent) {
+          const copiedDoc = JSON.parse(JSON.stringify(originalStudent));
+          studentEntry = { doc: copiedDoc, newLeaveArray: [...copiedDoc.leave] };
+          studentsToUpdate.set(modifiedLeave.studentId, studentEntry);
         } else {
-          console.error(`Student ${modifiedLeave.studentId} not found in current scoped students for leave ${modifiedLeave.leaveId}`);
+          console.error(`[ApplyChanges] Student ${modifiedLeave.studentId} not found in store for leave ${modifiedLeave.leaveId}.`);
           errorCount++;
           continue;
         }
       }
 
-      const leaveIndex = studentDocEntry.newLeaveArray.findIndex(leaveStr => {
-        try { return JSON.parse(leaveStr).leaveId === modifiedLeave.leaveId; } catch { return false; }
+      const leaveIdx = studentEntry.newLeaveArray.findIndex(lStr => {
+        try { return JSON.parse(lStr).leaveId === modifiedLeave.leaveId; }
+        catch { return false; }
       });
 
-      if (leaveIndex !== -1) {
+      if (leaveIdx !== -1) {
         try {
-          const leaveObj = JSON.parse(studentDocEntry.newLeaveArray[leaveIndex]);
-          leaveObj.status = modifiedLeave.status;
-          if (modifiedLeave.status === 'rejected') {
-            leaveObj.rejectionReason = modifiedLeave.rejectionReason;
-            leaveObj.rejectedAt = modifiedLeave.rejectedAt || new Date().toISOString();
-          } else {
-            delete leaveObj.rejectionReason;
-            delete leaveObj.rejectedAt;
-          }
-          studentDocEntry.newLeaveArray[leaveIndex] = JSON.stringify(leaveObj);
+            const leaveObj = JSON.parse(studentEntry.newLeaveArray[leaveIdx]);
+            leaveObj.status = modifiedLeave.status;
 
-          notificationsToSend.push({
-            title: `Leave application ${modifiedLeave.status}`,
-            msg: `Your leave request for "${modifiedLeave.title}" (${modifiedLeave.periodType === 'today' ? modifiedLeave.date : `${modifiedLeave.fromDate} to ${modifiedLeave.toDate}`}) has been ${modifiedLeave.status}.` +
-                 (modifiedLeave.status === 'rejected' && modifiedLeave.rejectionReason ? ` Reason: ${modifiedLeave.rejectionReason}` : ''),
-            to: modifiedLeave.studentId,
-            valid: tomorrowStr,
-            sender: senderEmail,
-            date: new Date().toISOString(),
-          });
-        } catch (e) { console.error("Error processing leave for update:", modifiedLeave.leaveId, e); errorCount++; }
-      } else { console.warn(`Leave ${modifiedLeave.leaveId} not found in student ${modifiedLeave.studentId}'s leave array for update.`); }
+            if (modifiedLeave.status === 'rejected') {
+                leaveObj.rejectionReason = modifiedLeave.rejectionReason;
+                leaveObj.rejectedAt = modifiedLeave.rejectedAt || new Date().toISOString();
+                leaveObj.rejectedBy = roleName;
+                delete leaveObj.approvedAt; delete leaveObj.approvedBy;
+            } else if (modifiedLeave.status === 'approved') {
+                delete leaveObj.rejectionReason; delete leaveObj.rejectedAt; delete leaveObj.rejectedBy;
+                leaveObj.approvedAt = modifiedLeave.approvedAt || new Date().toISOString();
+                leaveObj.approvedBy = roleName;
+            } else {
+                delete leaveObj.rejectionReason; delete leaveObj.rejectedAt; delete leaveObj.rejectedBy;
+                delete leaveObj.approvedAt; delete leaveObj.approvedBy;
+            }
+            studentEntry.newLeaveArray[leaveIdx] = JSON.stringify(leaveObj);
+
+            // Prepare notification data
+            const notificationTitle = `Leave application ${modifiedLeave.status}`;
+            const notificationMsg = `Your leave request for "${modifiedLeave.title}" (${modifiedLeave.periodType === 'today' ? modifiedLeave.date : `${modifiedLeave.fromDate} to ${modifiedLeave.toDate}`}) has been ${modifiedLeave.status}${roleName ? ` by ${roleName}` : ''}.` +
+                                  (modifiedLeave.status === 'rejected' && modifiedLeave.rejectionReason ? ` Reason: ${modifiedLeave.rejectionReason}` : '');
+            
+            // As per your schema, `to` is an array. We are sending to one student per leave status change.
+            // This assumes modifiedLeave.studentId is the Appwrite User ID or the Student Document $ID
+            // that your notification system targets.
+            // If you need the "id:..." prefix, construct it here:
+            // const targetStudentIdentifier = `id:${modifiedLeave.studentId}`;
+            const targetStudentIdentifier = modifiedLeave.studentId; // Assuming it's the direct ID
+
+            notificationPayloads.push({
+                title: notificationTitle,
+                msg: notificationMsg,
+                to: [`id:${targetStudentIdentifier}`], // Array containing the student's ID
+                valid: tomorrowStr,
+                sender: senderEmail,
+                // date: new Date().toISOString(), // The service can add this if needed, or Appwrite's $createdAt can be used
+            });
+
+        } catch (e) {
+            console.error(`[ApplyChanges] Error processing leave for update (student: ${modifiedLeave.studentId}, leaveId: ${modifiedLeave.leaveId}):`, e);
+            errorCount++;
+        }
+      } else {
+          console.warn(`[ApplyChanges] Leave ${modifiedLeave.leaveId} not found in student ${modifiedLeave.studentId}'s current leave array for update.`);
+      }
     }
 
-    for (const [studentId, { newLeaveArray }] of studentsToUpdate.entries()) {
-      try {
-        await updateStudentLeaveData(studentId, newLeaveArray);
-        successCount++;
-      } catch (e) { console.error(`Failed to update student ${studentId}`, e); errorCount++; }
-    }
-    
-    for (const notification of notificationsToSend) {
-        try { await createNotification(notification); }
-        catch (e) { console.error(`Failed to send notification to ${notification.to}`, e); }
-    }
+    // Perform database updates for student leave arrays
+    const updatePromises = Array.from(studentsToUpdate.entries()).map(
+      async ([studentId, { newLeaveArray }]) => {
+        try {
+          await updateStudentLeaveData(studentId, newLeaveArray);
+          successCount++;
+        } catch (e) {
+          console.error(`[ApplyChanges] Failed to update student ${studentId} in DB:`, e);
+          errorCount++;
+        }
+      }
+    );
+    await Promise.all(updatePromises);
 
-    if (errorCount > 0) setError(`Applied ${successCount} changes with ${errorCount} errors.`);
-    else alert(`Successfully applied ${successCount} changes.`);
+    // Send notifications using the new service
+    console.log(`[ApplyChanges] Preparing to send ${notificationPayloads.length} notifications.`);
+    const notificationPromises = notificationPayloads.map(payload =>
+      createNotificationEntry(payload).catch(e => { // Use createNotificationEntry
+        // Log the error but don't let one failed notification stop others or count as a main error
+        console.error(`[ApplyChanges] Failed to send notification for title "${payload.title}" to "${payload.to.join(', ')}":`, e);
+        // You might want a separate counter for notification failures if it's important to report
+      })
+    );
+    await Promise.all(notificationPromises);
+
+    if (errorCount > 0) {
+      setError(`Applied ${successCount} leave changes successfully, but ${errorCount} errors occurred with student data updates. Check console.`);
+    } else if (successCount > 0) {
+      alert(`Successfully applied ${successCount} leave changes. Notifications sent.`);
+    } else {
+      alert("No leave changes were applied. This might indicate an issue or no actual modifications were made.");
+    }
 
     clearModifications();
-    await fetchData(true); 
+    await fetchData(true);
+
     setIsApplyingChanges(false);
   };
 
-  const groupedLeaves = useMemo(() => {
+  const groupedLeaves = useMemo(() => { /* ... same as before ... */
     const groups: { [bsDateKey: string]: Leave[] } = {};
     displayableLeaveRequests.forEach(leave => {
       const bsDateKey = leave.periodType === 'today' ? leave.date : leave.fromDate;
-      if (!bsDateKey) {
-        console.warn("Leave object missing date/fromDate:", leave);
-        return; 
-      }
-      if (!groups[bsDateKey]) {
-        groups[bsDateKey] = [];
-      }
+      if (!bsDateKey) { console.warn("Leave missing date/fromDate:", leave); return; }
+      if (!groups[bsDateKey]) groups[bsDateKey] = [];
       groups[bsDateKey].push(leave);
     });
-    return Object.entries(groups).sort(([dateA_BS], [dateB_BS]) => {
-      if (dateA_BS > dateB_BS) return -1;
-      if (dateA_BS < dateB_BS) return 1;
-      return 0;
-    });
+    return Object.entries(groups).sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime());
   }, [displayableLeaveRequests]);
-  
-  // Options for filter dropdowns, derived from scoped data in the store
-  const facultyOptions: SelectOption[] = useMemo(() => 
-    faculties.map(f => ({ id: f.$id, name: f.name })), 
-    [faculties]
-  );
-  
-  const classOptions: SelectOption[] = useMemo(() => 
-    classes.map(c => ({ id: c, name: c })),
-    [classes]
-  );
 
-  const sectionOptions: SelectOption[] = useMemo(() => 
-    sections // `sections` from store is already scoped (teacher's assigned sections or all for admin)
-      .filter(sec => !filters.class || sec.class === filters.class) // Further filter by selected class if any
-      .map(sec => ({ id: sec.$id, name: `${sec.name} (Class ${sec.class})` })),
+  const facultyOptions: SelectOption[] = useMemo(() => faculties.map(f => ({ id: f.$id, name: f.name })), [faculties]);
+  const classOptions: SelectOption[] = useMemo(() => classes.map(c => ({ id: c, name: c })), [classes]);
+  // `sections` from store are SectionDocument objects (scoped for teacher). UI filter needs $id.
+  const sectionOptions: SelectOption[] = useMemo(() =>
+    sections
+      .filter(secDoc => !filters.class || secDoc.class === filters.class)
+      .map(secDoc => ({ id: secDoc.$id, name: `${secDoc.name} (Class ${secDoc.class})` })),
     [sections, filters.class]
   );
 
-  const pageTitle = currentUserRole === 'teacher' && teacherDetails
-    ? `${teacherDetails.name}'s Class Leave Approvals` 
-    : "Leave Approval Dashboard";
+  const pageTitle = currentUserRole === 'teacher' ? "Leave Approval (My Sections)" : "Leave Approval Dashboard";
 
-  // Message indicating which sections the teacher is managing
-  const assignedSectionsMessage = useMemo(() => {
-    if (currentUserRole === 'teacher' && teacherAssignedSectionsData && teacherAssignedSectionsData.length > 0) {
-      const sectionNames = teacherAssignedSectionsData.map(sec => `${sec.name} (Class ${sec.class})`).join(', ');
-      return `Managing sections: ${sectionNames}`;
-    }
-    return null;
-  }, [currentUserRole, teacherAssignedSectionsData]);
-
-  // Message to display when no leave requests are found/visible
-  const noRequestsMessageText = useMemo(() => {
-    if (isLoading) return null; // Don't show "no requests" while initially loading
-
-    if (currentUserRole === 'teacher') {
-      if (!teacherDetails || !teacherDetails.id) { // teacherDoc.id is the custom teacher ID
-        return "Teacher information incomplete. Cannot determine assigned sections.";
-      }
-      // teacherAssignedSectionsData comes from sections found by custom teacher ID.
-      if (teacherAssignedSectionsData.length === 0) { 
-        return "You are not currently assigned as a class teacher to any sections.";
-      }
-      // If sections are assigned, but no students were found for those sections (allStudents in store is empty)
-      if (useLeaveApprovalStore.getState().allStudents.length === 0 && teacherAssignedSectionsData.length > 0) {
-        return "No students found in your assigned sections.";
-      }
-      // If students exist, but no leave requests match current filters or exist at all for them
-       if (displayableLeaveRequests.length === 0) {
-         return "No leave requests found for your assigned sections matching current filters.";
-       }
-    }
-    // For admin, or if teacher has leaves but current filters yield none:
-    if (displayableLeaveRequests.length === 0) {
-        return "No leave requests found.";
-    }
-    return null; // Return null if there are leaves to display or still loading
-  }, [currentUserRole, teacherDetails, teacherAssignedSectionsData, displayableLeaveRequests.length, isLoading]);
-
-  // Sub-message for guidance when no requests are shown
-  const noRequestsSubMessageText = useMemo(() => {
-    const currentNoRequestsMessage = noRequestsMessageText; 
-    if (currentNoRequestsMessage) { // Only show sub-message if there's a main noRequestsMessage
-      if (currentUserRole === 'teacher' && 
-          ( // Conditions where admin help might be needed for a teacher
-           !teacherDetails || !teacherDetails.id || 
-           teacherAssignedSectionsData.length === 0 || 
-           (useLeaveApprovalStore.getState().allStudents.length === 0 && teacherAssignedSectionsData.length > 0)
-          )
-         ) {
-        return "Please contact an administrator if you believe this is an error.";
-      }
-      // General sub-message if no leaves are displayed after filters, or for admin
-      if (displayableLeaveRequests.length === 0) {
-         return "Try adjusting your filters or check back later.";
-      }
-    }
-    return null;
-  }, [noRequestsMessageText, currentUserRole, teacherDetails, teacherAssignedSectionsData, displayableLeaveRequests.length]);
-
-
-  if (isLoading) {
-    return <div className="p-6 text-center text-lg font-semibold text-gray-700">Loading leave requests...</div>;
+  if (isLoading && displayableLeaveRequests.length === 0 && !error) {
+    return <div className="p-6 text-center text-lg font-semibold">Loading leave requests...</div>;
   }
-  if (error && !isApplyingChanges) { // Show error prominently if not in the middle of applying changes
-    return (
-        <div className="p-6 text-center text-red-600">
-            <p className="text-lg mb-2">Error: {error}</p>
-            <Button color="danger" variant="ghost" onPress={() => fetchData(true)}>Retry Loading Data</Button>
-        </div>
-    );
+  if (error && !isApplyingChanges) {
+    return <div className="p-6 text-center text-red-600"><p>Error: {error}</p><Button onPress={() => fetchData(true)}>Retry</Button></div>;
   }
 
   return (
-    <div className="p-4 md:p-6 bg-gray-100 min-h-screen">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-1 gap-4">
+    <div className="p-4 md:p-6 bg-gray-100 min-h-screen pb-24">
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-gray-800">{pageTitle}</h1>
-        <ActionButton
-            icon={<RefreshIcon className="h-5 w-5"/>}
-            onClick={handleRefresh}
-            color="blue"
-            isIconOnly={true}
-            buttonText="Refresh Data"
-            disabled={isApplyingChanges || isLoading} // Disable if busy
-        />
+        <ActionButton icon={<RefreshIcon className="h-5 w-5"/>} onClick={handleRefresh} color="blue" isIconOnly buttonText="Refresh" disabled={isApplyingChanges || isLoading}/>
       </div>
-      {/* Assigned Sections Info for Teacher */}
-      {assignedSectionsMessage && (
-        <div className="mb-4 p-3 bg-indigo-100 text-indigo-800 text-sm font-medium rounded-lg shadow">
-          {assignedSectionsMessage}
-        </div>
-      )}
 
-      {/* Filters Section */}
-      <div className="mb-6 p-4 bg-white shadow-md rounded-lg grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-        <SearchBar
-          placeholder="Search leave title, reason, student..."
-          value={filters.searchText}
-          onValueChange={(value) => setFilter('searchText', value)}
-          className="lg:col-span-2"
-          inputClassName="text-sm"
-        />
-        <CustomSelect
-          label="Filter by Faculty"
-          placeholder="All Faculties"
-          options={facultyOptions}
-          value={filters.facultyId}
-          onChange={(selectedId) => setFilter('facultyId', selectedId)}
-          className="w-full"
-          size="md"
-          disabled={facultyOptions.length === 0}
-        />
-        <CustomSelect
-          label="Filter by Class"
-          placeholder="All Classes"
-          options={classOptions}
-          value={filters.class}
-          onChange={(selectedId) => setFilter('class', selectedId)}
-          className="w-full"
-          size="md"
-          disabled={classOptions.length === 0}
-        />
-        <CustomSelect
-          label="Filter by Section"
-          placeholder="All Sections"
-          options={sectionOptions} // These are from the store, already scoped for teacher
-          value={filters.section} // This will be a section $id
-          onChange={(selectedId) => setFilter('section', selectedId)}
-          className="w-full"
-          size="md"
-          disabled={sectionOptions.length === 0}
-        />
+      <div className="mb-6 p-4 bg-white shadow-md rounded-lg grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
+        <SearchBar placeholder="Search..." value={filters.searchText} onValueChange={v => setFilter('searchText', v)} className="w-full" />
+        <CustomSelect label="Faculty" placeholder="All Faculties" options={facultyOptions} value={filters.facultyId} onChange={v => setFilter('facultyId', v as string | null)} className="w-full" isDisabled={currentUserRole === 'teacher' && faculties.length <=1}/>
+        <CustomSelect label="Class" placeholder="All Classes" options={classOptions} value={filters.class} onChange={v => setFilter('class', v as string | null)} className="w-full" isDisabled={currentUserRole === 'teacher' && classes.length <=1}/>
+        <CustomSelect label="Section" placeholder="All Sections" options={sectionOptions} value={filters.section} onChange={v => setFilter('section', v as string | null)} className="w-full" isDisabled={(currentUserRole === 'teacher' && sections.length <=1) || sectionOptions.length === 0}/>
       </div>
-      
-      {/* "No Leave Requests" Message Area */}
-      {noRequestsMessageText && !isFetchingMore && groupedLeaves.length === 0 && (
+
+      {(isLoading && displayableLeaveRequests.length > 0 && !isApplyingChanges) && <div className="text-center p-4">Loading...</div>}
+
+      {groupedLeaves.length === 0 && !isLoading && !isFetchingMore && (
         <div className="text-center text-gray-500 py-10 bg-white shadow rounded-lg">
+            {/* SVG Icon */}
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-20 h-20 mx-auto mb-4 text-gray-400">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.03 1.125 0 1.131.094 1.976 1.057 1.976 2.192V7.5m0 4.5h.008m-1.008 0H7.5a2.25 2.25 0 0 0-2.25 2.25v.75c0 1.108.892 2.006 1.996 2.006H12c1.104 0 1.996-.898 1.996-2.006v-.75a2.25 2.25 0 0 0-2.25-2.25H7.5m8.25-4.5h.008M12 10.5h.008m-3.75 0h.008m0 0h.008m2.742 0H12m4.5 0h.008m-1.008 0H12a2.25 2.25 0 0 0-2.25 2.25v.75M7.5 10.5h.008M12 7.5h.008m2.242 0H12m0 0h.008M12 7.5a2.25 2.25 0 0 0-2.25 2.25v.75" />
             </svg>
-            <p className="text-xl">{noRequestsMessageText}</p>
-            {noRequestsSubMessageText && <p className="text-sm">{noRequestsSubMessageText}</p>}
+            <p className="text-xl">No leave requests found.</p>
+            <p className="text-sm">Try adjusting filters or check back later.</p>
+            {currentUserRole === 'teacher' && teacherAssignedSectionIds.length === 0 && (
+                <p className="text-sm mt-2 text-orange-600">You are not currently assigned as a class teacher to any section.</p>
+            )}
+            {currentUserRole === 'teacher' && teacherAssignedSectionIds.length > 0 && allStudents.length === 0 && (
+                <p className="text-sm mt-2 text-orange-600">You are assigned to sections, but no students were found in them based on current criteria, or data is inaccessible.</p>
+            )}
+            {allStudents.length > 0 && displayableLeaveRequests.length === 0 && (
+                <p className="text-sm mt-2 text-orange-600">Students found, but no leave applications match current filters or none exist.</p>
+            )}
         </div>
       )}
 
-      {/* Leave Requests List */}
-      {groupedLeaves.map(([bsDateString, leavesInGroup]) => (
-        <div key={bsDateString} className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-700 mb-4 pb-2 border-b-2 border-indigo-600">
-            {bsDateString}
-          </h2>
+      {groupedLeaves.map(([dateKey, leaves]) => (
+        <div key={dateKey} className="mb-8">
+          <h2 className="text-2xl font-semibold text-gray-700 mb-4 pb-2 border-b-2 border-indigo-600">{dateKey || "Unspecified Date"}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {leavesInGroup.map((leave) => {
-                const modifiedVersion = modifiedLeaves.get(leave.leaveId);
-                const displayLeave = modifiedVersion || leave;
-                return (
-                    <LeaveRequestCard
-                        key={displayLeave.leaveId + '-' + (modifiedVersion ? 'mod-' : '') + displayLeave.status}
-                        leave={displayLeave}
-                        onApprove={() => handleApprove(displayLeave.leaveId, displayLeave.studentId)}
-                        onReject={() => handleRequestReject(displayLeave.leaveId, displayLeave.studentId)}
-                        isModified={!!modifiedVersion}
-                        originalStatus={modifiedVersion?.originalStatus}
-                    />
-                );
+            {leaves.map(l => {
+              const mod = modifiedLeaves.get(l.leaveId);
+              const dispL = mod || l;
+              return <LeaveRequestCard key={dispL.leaveId + (mod ? '-mod' : '')} leave={dispL} onApprove={() => handleApprove(dispL.leaveId, dispL.studentId)} onReject={() => handleRequestReject(dispL.leaveId, dispL.studentId)} isModified={!!mod} originalStatus={mod?.originalStatus || l.status}/>;
             })}
           </div>
         </div>
       ))}
 
-      {/* Load More Button & Indicator */}
-      {currentlyDisplayedCount < totalProcessedLeavesCount && !isFetchingMore && (
-        <div ref={loadMoreRef} className="flex justify-center py-8">
-          <Button variant="ghost" color="primary" onPress={loadMoreLeaves} isLoading={isFetchingMore}>
-            Load More ({totalProcessedLeavesCount - currentlyDisplayedCount} remaining)
-          </Button>
-        </div>
+      {currentlyDisplayedCount < totalProcessedLeavesCount && !isFetchingMore && !isLoading && (
+        <div ref={loadMoreRef} className="flex justify-center py-8"><Button variant="ghost" color="primary" onPress={loadMoreLeaves} isLoading={isFetchingMore}>Load More</Button></div>
       )}
-      {isFetchingMore && (
-        <div className="text-center py-8 text-gray-600 font-semibold">Loading more requests...</div>
-      )}
+      {isFetchingMore && <div className="text-center py-8 font-semibold">Loading more...</div>}
 
-      {/* Pending Changes Bar */}
       {hasPendingChanges() && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm p-4 border-t border-gray-300 shadow-lg flex flex-col sm:flex-row justify-center sm:justify-end gap-3 z-30">
-          <Button color="default" variant="bordered" onPress={() => { resetModifications(); }} startContent={<CancelIcon className="h-5 w-5"/>} isDisabled={isApplyingChanges} className="w-full sm:w-auto">
-            Cancel Changes ({modifiedLeaves.size})
-          </Button>
-          <Button color="primary" variant="solid" onPress={() => setIsConfirmPopoverOpen(true)} startContent={<ArrowDownTrayIcon className="h-5 w-5"/>} isLoading={isApplyingChanges} isDisabled={isApplyingChanges} className="w-full sm:w-auto">
-            {isApplyingChanges ? 'Applying...' : `Apply ${modifiedLeaves.size} Changes`}
-          </Button>
+        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm p-4 border-t shadow-lg flex flex-col sm:flex-row justify-end gap-3 z-30">
+          <Button variant="bordered" onPress={resetModifications} startContent={<CancelIcon className="h-5"/>} isDisabled={isApplyingChanges}>Cancel ({modifiedLeaves.size})</Button>
+          <Button color="primary" onPress={() => setIsConfirmPopoverOpen(true)} startContent={<ArrowDownTrayIcon className="h-5"/>} isLoading={isApplyingChanges} isDisabled={isApplyingChanges}>Apply ({modifiedLeaves.size}) Changes</Button>
         </div>
       )}
 
-      {/* Popovers */}
-      <Popover
-        isOpen={isConfirmPopoverOpen}
-        onClose={() => setIsConfirmPopoverOpen(false)}
-        onConfirm={handleApplyChanges}
-        title="Confirm Changes"
-        content={`Are you sure you want to apply ${modifiedLeaves.size} change(s) to leave statuses? This will update student records and send notifications.`}
-        isConfirmLoading={isApplyingChanges}
-      />
-      <Popover
-        isOpen={rejectionReasonPrompt.isOpen}
-        onClose={() => setRejectionReasonPrompt({ ...rejectionReasonPrompt, isOpen: false })}
-        onConfirm={confirmReject}
-        title="Rejection Reason"
-        content={
-          <div className="space-y-2">
-            <p className="text-sm text-gray-600">Provide reason for rejecting leave for student <span className="font-semibold">{getLeaveById(rejectionReasonPrompt.leaveId)?.studentName}</span> regarding "<span className="font-semibold">{getLeaveById(rejectionReasonPrompt.leaveId)?.title}</span>".</p>
-            <Input
-              label="Rejection Reason"
-              placeholder="Enter reason (e.g., insufficient details)"
-              value={currentRejectionReason}
-              onValueChange={setCurrentRejectionReason}
-              fullWidth
-              autoFocus
-              isRequired
-              className="mt-1"
-            />
-          </div>
-        }
-        isConfirmLoading={false} // This popover's confirm doesn't have its own loading state
+      <Popover isOpen={isConfirmPopoverOpen} onClose={() => setIsConfirmPopoverOpen(false)} onConfirm={handleApplyChanges} title="Confirm Changes" content={`Apply ${modifiedLeaves.size} change(s)?`} isConfirmLoading={isApplyingChanges}/>
+      <Popover isOpen={rejectionReasonPrompt.isOpen} onClose={() => setRejectionReasonPrompt(p => ({...p, isOpen: false}))} onConfirm={confirmReject} title="Rejection Reason"
+        content={<Input label="Reason" placeholder="Enter reason" value={currentRejectionReason} onValueChange={setCurrentRejectionReason} fullWidth autoFocus isRequired />}
       />
     </div>
   );

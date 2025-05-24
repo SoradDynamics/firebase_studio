@@ -12,7 +12,7 @@ export interface BookGenre {
     customBookId: string;
     name: string;
     author: string;
-    year?: number | null;
+    year?: string | null;
     genreId: string;
     genreName?: string; // For display purposes, populated after fetching
     location?: string;

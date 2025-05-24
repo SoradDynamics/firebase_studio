@@ -1,197 +1,237 @@
 // src/services/libraryService.ts
-import { databases, iD, Query } from '~/utils/appwrite';
+import { databases, iD as AppwriteID, Query, getCurrentUserEmail } from '~/utils/appwrite';
 import {
   APPWRITE_DATABASE_ID,
-  BOOK_GENRES_COLLECTION_ID,
   BOOKS_COLLECTION_ID,
   BOOK_BORROWINGS_COLLECTION_ID,
+  BOOK_GENRES_COLLECTION_ID
+  // Ensure BOOK_GENRES_COLLECTION_ID is here if you use genre services from this file
 } from '../constants/appwriteIds';
-import type { Document } from 'types/appwrite';
-import type { BookGenre, Book, BookBorrowing, UserType } from 'types/library';
-import { createNotification } from './notificationService';
-import { useCurrentUser } from '../hooks/useCurrentUser'; // Used to get current user email
+import type { Document as AppwriteDocumentType } from 'types/appwrite';
+import type { Book, BookBorrowing, BookGenre } from 'types/library'; // Assuming BookGenre might be used
+import { createNotificationEntry, NotificationData } from '../utils/notification'; // Ensure this path is correct
+import { getTomorrowADDateString, convertADtoBS } from '../utils/dateConverter'; // Using from dateConverter
 
-// --- Genre Service ---
-export const fetchGenres = async (): Promise<Document<BookGenre>[]> => {
-  if (!BOOK_GENRES_COLLECTION_ID) throw new Error("Genre Collection ID not defined");
-  const response = await databases.listDocuments<Document<BookGenre>>(APPWRITE_DATABASE_ID!, BOOK_GENRES_COLLECTION_ID!);
-  return response.documents;
-};
+// --- Book Genre Service Functions (if they belong here) ---
+// Example:
+// export const fetchGenres = async (): Promise<AppwriteDocumentType<BookGenre>[]> => { /* ... */ };
 
-export const addGenre = async (genreData: Omit<BookGenre, '$id'>): Promise<Document<BookGenre>> => {
-  if (!BOOK_GENRES_COLLECTION_ID) throw new Error("Genre Collection ID not defined");
-  return databases.createDocument<Document<BookGenre>>(
-    APPWRITE_DATABASE_ID!,
-    BOOK_GENRES_COLLECTION_ID!,
-    iD.unique(),
-    genreData
-  );
-};
-
-export const updateGenre = async (id: string, genreData: Partial<BookGenre>): Promise<Document<BookGenre>> => {
-  if (!BOOK_GENRES_COLLECTION_ID) throw new Error("Genre Collection ID not defined");
-  return databases.updateDocument<Document<BookGenre>>(
-    APPWRITE_DATABASE_ID!,
-    BOOK_GENRES_COLLECTION_ID!,
-    id,
-    genreData
-  );
-};
-
-export const deleteGenre = async (id: string): Promise<void> => {
-  if (!BOOK_GENRES_COLLECTION_ID) throw new Error("Genre Collection ID not defined");
-  // Consider checking if genre is in use by any books before deleting
-  await databases.deleteDocument(APPWRITE_DATABASE_ID!, BOOK_GENRES_COLLECTION_ID!, id);
-};
-
-// --- Book Service ---
-export const fetchBooks = async (searchTerm?: string): Promise<Document<Book>[]> => {
-  if (!BOOKS_COLLECTION_ID) throw new Error("Books Collection ID not defined");
-  const queries = searchTerm ? [Query.search('name', searchTerm), Query.limit(25)] : [Query.limit(25)]; // Add pagination later
-  const response = await databases.listDocuments<Document<Book>>(APPWRITE_DATABASE_ID!, BOOKS_COLLECTION_ID!, queries);
-  return response.documents;
-};
-
-export const fetchBookById = async (id: string): Promise<Document<Book> | null> => {
-  if (!BOOKS_COLLECTION_ID) throw new Error("Books Collection ID not defined");
+export const fetchGenres = async (): Promise<AppwriteDocumentType<BookGenre>[]> => {
+  if (!BOOK_GENRES_COLLECTION_ID || !APPWRITE_DATABASE_ID) {
+    console.error("fetchGenres: Book Genres Collection ID or DB ID is not defined.");
+    // throw new Error("Genre service not configured."); // Or return empty array
+    return [];
+  }
   try {
-    return await databases.getDocument<Document<Book>>(APPWRITE_DATABASE_ID!, BOOKS_COLLECTION_ID!, id);
+    const response = await databases.listDocuments<AppwriteDocumentType<BookGenre>>(
+      APPWRITE_DATABASE_ID,
+      BOOK_GENRES_COLLECTION_ID
+      // Add Query.limit(100) or similar if you have many genres
+    );
+    return response.documents;
   } catch (error) {
-    console.error("Error fetching book by ID:", error);
+    console.error("Error fetching genres from service:", error);
+    throw error; // Re-throw to be caught by store/component
+  }
+};
+
+// --- Book Service Functions ---
+export const fetchBookById = async (appwriteBookId: string): Promise<AppwriteDocumentType<Book> | null> => {
+  if (!BOOKS_COLLECTION_ID || !APPWRITE_DATABASE_ID) {
+      console.error("fetchBookById: Books Collection or DB ID not defined");
+      return null;
+  }
+  try {
+    const doc = await databases.getDocument<AppwriteDocumentType<Book>>(APPWRITE_DATABASE_ID, BOOKS_COLLECTION_ID, appwriteBookId);
+    return doc;
+  } catch (error) {
+    if ((error as any).code !== 404) {
+        console.error(`Error fetching book by ID ${appwriteBookId}:`, error);
+    }
     return null;
   }
 };
 
-
-export const addBook = async (bookData: Omit<Book, '$id' | 'availableCopies'>): Promise<Document<Book>> => {
-  if (!BOOKS_COLLECTION_ID) throw new Error("Books Collection ID not defined");
-  return databases.createDocument<Document<Book>>(
-    APPWRITE_DATABASE_ID!,
-    BOOKS_COLLECTION_ID!,
-    iD.unique(),
-    { ...bookData, availableCopies: bookData.totalCopies } // Initially, all copies are available
-  );
-};
-
-export const updateBook = async (id: string, bookData: Partial<Book>): Promise<Document<Book>> => {
-  if (!BOOKS_COLLECTION_ID) throw new Error("Books Collection ID not defined");
-  // If totalCopies is updated, availableCopies might need adjustment if it exceeds new total.
-  // This logic can be complex if books are currently borrowed.
-  // For simplicity, we assume direct update or handle this in the UI/store layer.
-  return databases.updateDocument<Document<Book>>(
-    APPWRITE_DATABASE_ID!,
-    BOOKS_COLLECTION_ID!,
-    id,
-    bookData
-  );
-};
-
-export const deleteBook = async (id: string): Promise<void> => {
-  if (!BOOKS_COLLECTION_ID) throw new Error("Books Collection ID not defined");
-  // Consider checking if book has active borrowings before deleting
-  await databases.deleteDocument(APPWRITE_DATABASE_ID!, BOOKS_COLLECTION_ID!, id);
-};
-
-// --- Book Borrowing Service ---
-export const fetchBorrowedBooks = async (filters?: { userId?: string; status?: 'borrowed' | 'returned' }): Promise<Document<BookBorrowing>[]> => {
-  if (!BOOK_BORROWINGS_COLLECTION_ID) throw new Error("Borrowings Collection ID not defined");
-  const queries: string[] = [Query.orderDesc('borrowDate')]; // Default sort
-  if (filters?.userId) queries.push(Query.equal('userId', filters.userId));
-  if (filters?.status) queries.push(Query.equal('status', filters.status));
+export const fetchBooks = async (searchTerm?: string, limit: number = 25): Promise<AppwriteDocumentType<Book>[]> => {
+  if (!BOOKS_COLLECTION_ID || !APPWRITE_DATABASE_ID) {
+    console.error("fetchBooks: Collection or DB ID not defined.");
+    return [];
+  }
+  const queries: string[] = [Query.limit(limit), Query.orderDesc('$createdAt')];
+  if (searchTerm && searchTerm.trim()) {
+    queries.push(Query.search('name', searchTerm.trim())); // Example: search by name
+  }
   
-  const response = await databases.listDocuments<Document<BookBorrowing>>(APPWRITE_DATABASE_ID!, BOOK_BORROWINGS_COLLECTION_ID!, queries);
-  return response.documents;
+  try {
+    const response = await databases.listDocuments<AppwriteDocumentType<Book>>(
+      APPWRITE_DATABASE_ID,
+      BOOKS_COLLECTION_ID,
+      queries
+    );
+    return response.documents;
+  } catch (error) {
+    console.error("Error fetching books:", error);
+    return [];
+  }
+};
+// ... (addBook, updateBook, deleteBook services if not already present elsewhere)
+
+
+// --- Book Borrowing Service Functions ---
+export const fetchBorrowedBooks = async (filters?: { userId?: string; status?: 'borrowed' | 'returned' }): Promise<AppwriteDocumentType<BookBorrowing>[]> => {
+    if (!BOOK_BORROWINGS_COLLECTION_ID || !APPWRITE_DATABASE_ID) {
+        console.error("fetchBorrowedBooks: Collection or DB ID not defined.");
+        return [];
+    }
+    const queries: string[] = [Query.orderDesc('borrowDate')]; // Changed from $createdAt for relevance
+    if (filters?.userId) {
+        // 'userId' in coll-book-borrowings stores the custom ID (e.g., S001)
+        queries.push(Query.equal('userId', filters.userId)); 
+    }
+    if (filters?.status) {
+        queries.push(Query.equal('status', filters.status));
+    }
+    queries.push(Query.limit(100)); 
+
+    try {
+        const response = await databases.listDocuments<AppwriteDocumentType<BookBorrowing>>(
+            APPWRITE_DATABASE_ID,
+            BOOK_BORROWINGS_COLLECTION_ID,
+            queries
+        );
+        return response.documents;
+    } catch (error) {
+        console.error("Error fetching borrowed books:", error);
+        return [];
+    }
 };
 
 export const borrowBook = async (
-  borrowData: Omit<BookBorrowing, '$id' | 'status' | 'borrowedByStaffEmail'>,
-  bookToUpdate: { id: string, availableCopies: number },
-  borrowerAppwriteId: string, // The Appwrite $id of the student/teacher document
-  borrowerCustomId: string, // The custom 'id' field of student/teacher
-  bookName: string,
-  staffEmail: string
-): Promise<Document<BookBorrowing>> => {
-  if (!BOOK_BORROWINGS_COLLECTION_ID || !BOOKS_COLLECTION_ID) throw new Error("Collection ID not defined for borrowing/books");
-
-  if (bookToUpdate.availableCopies <= 0) {
-    throw new Error('Book not available for borrowing.');
+  borrowData: Omit<BookBorrowing, '$id' | 'status' | 'borrowedByStaffEmail' | 'bookName' | 'userName' | '$permissions' | '$collectionId' | '$databaseId' | '$createdAt' | '$updatedAt'>,
+  bookToUpdate: { id: string, availableCopies: number }, // id here is book's Appwrite $id
+  borrowerCustomId: string, // User's custom 'id' field (e.g., S001) for notification 'to' field
+  bookName: string
+  // staffEmail is implicitly taken from logged-in user via getCurrentUserEmail
+): Promise<AppwriteDocumentType<BookBorrowing>> => {
+  if (!BOOK_BORROWINGS_COLLECTION_ID || !BOOKS_COLLECTION_ID || !APPWRITE_DATABASE_ID) {
+    throw new Error("borrowBook: Critical Appwrite IDs are not defined.");
   }
 
-  // 1. Create borrowing record
-  const newBorrowing = await databases.createDocument<Document<BookBorrowing>>(
-    APPWRITE_DATABASE_ID!,
-    BOOK_BORROWINGS_COLLECTION_ID!,
-    iD.unique(),
-    { ...borrowData, status: 'borrowed', borrowedByStaffEmail: staffEmail }
-  );
+  if (bookToUpdate.availableCopies <= 0) {
+    throw new Error(`Book "${bookName}" (ID: ${bookToUpdate.id}) is not available for borrowing.`);
+  }
 
-  // 2. Update book's availableCopies
+  const staffEmail = await getCurrentUserEmail();
+  if (!staffEmail) {
+    console.warn('[LibraryService] borrowBook: Could not get sender email. Borrowing will proceed without sender info on record.');
+    // Depending on strictness, you might want to throw an error here:
+    // throw new Error("Could not identify staff member for borrowing record.");
+  }
+
+  console.log('[LibraryService] borrowBook initiated for:', { bookName, borrowerCustomId, dueDateAD: borrowData.dueDate });
+  
+  const newBorrowingDoc = await databases.createDocument<AppwriteDocumentType<BookBorrowing>>(
+    APPWRITE_DATABASE_ID,
+    BOOK_BORROWINGS_COLLECTION_ID,
+    AppwriteID.unique(),
+    { 
+        ...borrowData, // Contains bookId (Appwrite $id), userId (custom S001), userType, borrowDate, dueDate
+        status: 'borrowed', 
+        borrowedByStaffEmail: staffEmail || 'unknown_staff' // Use fetched email or a placeholder
+    }
+  );
+  console.log('[LibraryService] Borrowing record created:', newBorrowingDoc.$id);
+
   await databases.updateDocument(
-    APPWRITE_DATABASE_ID!,
-    BOOKS_COLLECTION_ID!,
-    bookToUpdate.id,
+    APPWRITE_DATABASE_ID,
+    BOOKS_COLLECTION_ID,
+    bookToUpdate.id, // This is book's Appwrite $id
     { availableCopies: bookToUpdate.availableCopies - 1 }
   );
+  console.log('[LibraryService] Book availableCopies updated for book:', bookToUpdate.id);
 
-  // 3. Send notification
-  // The `to` field in coll-notify needs the specific user document ID (from your schema, not Appwrite's $id for the user document)
-  // The prompt says "id of that user (there is seprate column named id in db use that column value for this id)"
-  await createNotification({
-    title: `Book Borrowed: ${bookName}`,
-    msg: `The book "${bookName}" has been borrowed by you. Due date is ${new Date(borrowData.dueDate).toLocaleDateString()}.`,
-    to: `id:${borrowerCustomId}`, // Use the custom 'id' field
-  });
+  // --- Create Notification ---
+  if (staffEmail) { // Only send notification if sender is identified
+    try {
+        const notificationPayload: NotificationData = {
+            title: `Book Borrowed: ${bookName}`,
+            // Using convertADtoBS to show BS date in the notification message
+            msg: `The book "${bookName}" has been borrowed. Due Date: ${convertADtoBS(borrowData.dueDate)}.`,
+            to: [`id:${borrowerCustomId}`], // Format as per your schema: "id:USER_CUSTOM_ID"
+            valid: getTomorrowADDateString(), // Using from dateConverter
+            sender: staffEmail,
+            date: new Date().toISOString(), // Add creation date to notification
+        };
+        await createNotificationEntry(notificationPayload);
+        console.log('[LibraryService] Borrow notification sent for user custom ID:', borrowerCustomId);
+    } catch(notificationError) {
+        console.error('[LibraryService] Failed to send borrow notification:', notificationError);
+    }
+  } else {
+      console.warn("[LibraryService] Skipping borrow notification due to missing staff email.");
+  }
 
-  return newBorrowing;
+  return newBorrowingDoc;
 };
 
 export const returnBook = async (
-  borrowingId: string,
-  bookToUpdate: { id: string, availableCopies: number, totalCopies: number },
-  borrowerAppwriteId: string, // The Appwrite $id of the student/teacher document
-  borrowerCustomId: string, // The custom 'id' field of student/teacher
-  bookName: string,
-  staffEmail: string
-): Promise<Document<BookBorrowing>> => {
-  if (!BOOK_BORROWINGS_COLLECTION_ID || !BOOKS_COLLECTION_ID) throw new Error("Collection ID not defined for borrowing/books");
+  borrowingAppwriteId: string, // Appwrite $id of the BookBorrowing document
+  bookToUpdate: { id: string, availableCopies: number, totalCopies: number }, // id is book's Appwrite $id
+  borrowerCustomId: string, // User's custom 'id' field for notification
+  bookName: string
+  // staffEmail is implicitly taken from logged-in user via getCurrentUserEmail
+): Promise<AppwriteDocumentType<BookBorrowing>> => {
+  if (!BOOK_BORROWINGS_COLLECTION_ID || !BOOKS_COLLECTION_ID || !APPWRITE_DATABASE_ID) {
+    throw new Error("returnBook: Critical Appwrite IDs are not defined.");
+  }
 
-  // 1. Update borrowing record
-  const updatedBorrowing = await databases.updateDocument<Document<BookBorrowing>>(
-    APPWRITE_DATABASE_ID!,
-    BOOK_BORROWINGS_COLLECTION_ID!,
-    borrowingId,
-    { status: 'returned', returnDate: new Date().toISOString(), returnedByStaffEmail: staffEmail }
+  const staffEmail = await getCurrentUserEmail();
+  if (!staffEmail) {
+    console.warn('[LibraryService] returnBook: Could not get sender email. Return will proceed without sender info on record.');
+  }
+  
+  console.log('[LibraryService] returnBook initiated for borrowing ID:', borrowingAppwriteId);
+
+  const updatedBorrowingDoc = await databases.updateDocument<AppwriteDocumentType<BookBorrowing>>(
+    APPWRITE_DATABASE_ID,
+    BOOK_BORROWINGS_COLLECTION_ID,
+    borrowingAppwriteId,
+    { 
+        status: 'returned', 
+        returnDate: new Date().toISOString(), 
+        returnedByStaffEmail: staffEmail || 'unknown_staff' 
+    }
   );
+  console.log('[LibraryService] Borrowing record status updated to returned:', updatedBorrowingDoc.$id);
 
-  // 2. Update book's availableCopies (ensure it doesn't exceed totalCopies)
   const newAvailableCopies = Math.min(bookToUpdate.availableCopies + 1, bookToUpdate.totalCopies);
   await databases.updateDocument(
-    APPWRITE_DATABASE_ID!,
-    BOOKS_COLLECTION_ID!,
-    bookToUpdate.id,
+    APPWRITE_DATABASE_ID,
+    BOOKS_COLLECTION_ID,
+    bookToUpdate.id, // This is book's Appwrite $id
     { availableCopies: newAvailableCopies }
   );
+  console.log('[LibraryService] Book availableCopies updated for book:', bookToUpdate.id);
 
-  // 3. Send notification
-  await createNotification({
-    title: `Book Returned: ${bookName}`,
-    msg: `The book "${bookName}" has been successfully returned. Thank you!`,
-    to: `id:${borrowerCustomId}`, // Use the custom 'id' field
-  });
-
-  return updatedBorrowing;
-};
-
-// For Dashboard: Fetch all borrowings (potentially large, consider pagination or specific queries)
-export const fetchAllBorrowingsForDashboard = async (): Promise<Document<BookBorrowing>[]> => {
-    if (!BOOK_BORROWINGS_COLLECTION_ID) throw new Error("Borrowings Collection ID not defined");
-    // This could be a lot of data. For a real dashboard, you'd use aggregated queries if Appwrite supports them,
-    // or fetch in chunks, or pre-aggregate data.
-    // For now, fetching all with a reasonable limit for demonstration.
-    const response = await databases.listDocuments<Document<BookBorrowing>>(
-        APPWRITE_DATABASE_ID!,
-        BOOK_BORROWINGS_COLLECTION_ID!,
-        [Query.limit(500)] // Adjust limit as needed
-    );
-    return response.documents;
+  // --- Create Notification ---
+  if (staffEmail) {
+    try {
+        const notificationPayload: NotificationData = {
+            title: `Book Returned: ${bookName}`,
+            msg: `The book "${bookName}" has been successfully returned. Thank you!`,
+            to: [`id:${borrowerCustomId}`],
+            valid: getTomorrowADDateString(),
+            sender: staffEmail,
+            date: new Date().toISOString(),
+        };
+        await createNotificationEntry(notificationPayload);
+        console.log('[LibraryService] Return notification sent for user custom ID:', borrowerCustomId);
+    } catch(notificationError) {
+        console.error('[LibraryService] Failed to send return notification:', notificationError);
+    }
+  } else {
+      console.warn("[LibraryService] Skipping return notification due to missing staff email.");
+  }
+  
+  return updatedBorrowingDoc;
 };
