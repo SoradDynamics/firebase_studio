@@ -249,49 +249,46 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   allBorrowingsForDashboard: [],
   isLoadingAllBorrowings: false,
   fetchAllBorrowingsForDashboard: async () => {
-    set({ isLoadingAllBorrowings: true });
+    set({ isLoadingAllBorrowings: true }); // isLoadingAllBorrowings should be part of your LibraryState interface
     try {
-        const borrowings = await libraryService.fetchAllBorrowingsForDashboard();
-        const books = get().books.length > 0 ? get().books : await libraryService.fetchBooks();
-        if(get().books.length === 0 && books.length > 0) set ( { books });
-        
-        const genres = get().genres.length > 0 ? get().genres : await libraryService.fetchGenres();
-        if (get().genres.length === 0 && genres.length > 0) set({ genres });
+      // This is where the error occurs (line 254 in your log)
+      const borrowings = await libraryService.fetchAllBorrowingsForDashboard(); // Call the service function
 
-        const enrichedBorrowings = await Promise.all(borrowings.map(async (borrow) => {
-            let book = books.find(b => b.$id === borrow.bookId);
-            if (!book) {
-                const fetchedBookDoc = await libraryService.fetchBookById(borrow.bookId);
-                if (fetchedBookDoc) {
-                    const genre = genres.find(g => g.$id === fetchedBookDoc.genreId);
-                    book = {...fetchedBookDoc, genreName: genre?.name || 'Unknown Genre'};
-                }
-            } else if (!book.genreName) { // If book from cache doesn't have genre name
-                const genre = genres.find(g => g.$id === book!.genreId);
-                book = {...book, genreName: genre?.name || 'Unknown Genre'};
-            }
+      // Ensure your enrichment logic here is correct and robust
+      const books = get().books.length > 0 ? get().books : await libraryService.fetchBooks(undefined, 500); // Fetch more books if needed for enrichment
+      if(get().books.length === 0 && books.length > 0) set({ books });
+      
+      const genres = get().genres.length > 0 ? get().genres : await libraryService.fetchGenres();
+      if (get().genres.length === 0 && genres.length > 0) set({ genres });
 
-            // Fetch user details using their custom ID.
-            // The `borrow.userId` stores the custom `id` field of student/teacher.
-            const user = await userService.getUserById(borrow.userId, borrow.userType);
-            
-            return {
-              ...borrow,
-              bookName: book?.name || 'Unknown Book',
-              genreId: book?.genreId, // Add genreId to borrowing for dashboard aggregation
-              genreName: book?.genreName, // Add genreName
-              userName: user?.name || 'Unknown User',
-              userFacultyId: user?.type === 'student' ? user.facultyId : undefined, // For student dashboard
-              userClass: user?.type === 'student' ? user.class : undefined, // For student dashboard
-            };
-        }));
-        set({ allBorrowingsForDashboard: enrichedBorrowings, isLoadingAllBorrowings: false });
+      const enrichedBorrowings = await Promise.all(borrowings.map(async (borrow) => {
+          // ... YOUR EXISTING ENRICHMENT LOGIC ...
+          // Ensure this logic correctly finds book details, genreId, userName, userFacultyId, etc.
+          // Example snippet (ensure it matches your needs and Book/User types):
+          let bookDetails: { name?: string, genreId?: string } | null = null;
+          const bookDoc = get().books.find(b => b.$id === borrow.bookId) || await libraryService.fetchBookById(borrow.bookId);
+          if (bookDoc) {
+            bookDetails = { name: bookDoc.name, genreId: bookDoc.genreId };
+          }
+          
+          const user = await userService.getUserByCustomId(borrow.userId, borrow.userType); // Make sure userService is imported
+
+          return {
+            ...borrow,
+            bookName: bookDetails?.name || 'Unknown Book',
+            genreId: bookDetails?.genreId,
+            userName: user?.name || 'Unknown User',
+            userFacultyId: user?.type === 'student' ? user.facultyId : undefined,
+            userClass: user?.type === 'student' ? user.class : undefined,
+          };
+      }));
+      set({ allBorrowingsForDashboard: enrichedBorrowings, isLoadingAllBorrowings: false });
     } catch (error) {
-        console.error("Error fetching all borrowings for dashboard:", error);
-        set({ isLoadingAllBorrowings: false });
-        throw error;
+      console.error("Store: Error fetching all borrowings for dashboard action:", error); // Line 290 in your log
+      set({ isLoadingAllBorrowings: false, allBorrowingsForDashboard: [] }); // Clear on error
+      // toast.error("Failed to load dashboard borrowing data."); // Optionally show toast from component
     }
-  },
+},
   faculties: [],
   fetchFacultiesForDashboard: async () => {
       try {
@@ -301,4 +298,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           console.error("Error fetching faculties for dashboard:", error);
       }
   },
+
+  
 }));

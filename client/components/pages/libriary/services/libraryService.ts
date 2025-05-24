@@ -12,6 +12,27 @@ import type { Book, BookBorrowing, BookGenre } from 'types/library'; // Assuming
 import { createNotificationEntry, NotificationData } from '../utils/notification'; // Ensure this path is correct
 import { getTomorrowADDateString, convertADtoBS } from '../utils/dateConverter'; // Using from dateConverter
 
+
+export const fetchAllBorrowingsForDashboard = async (limit: number = 500): Promise<AppwriteDocumentType<BookBorrowing>[]> => {
+  if (!BOOK_BORROWINGS_COLLECTION_ID || !APPWRITE_DATABASE_ID) {
+    console.error("fetchAllBorrowingsForDashboard: Collection or DB ID not defined.");
+    return [];
+  }
+  try {
+    const response = await databases.listDocuments<AppwriteDocumentType<BookBorrowing>>(
+      APPWRITE_DATABASE_ID,
+      BOOK_BORROWINGS_COLLECTION_ID,
+      [
+        Query.limit(limit), // Fetch a significant number for dashboard aggregation
+        Query.orderDesc('$createdAt') // Or another relevant order
+      ]
+    );
+    return response.documents;
+  } catch (error) {
+    console.error("Error fetching all borrowings for dashboard from service:", error);
+    throw error; // Or return [], depending on how you want to handle errors in the store
+  }
+};
 // --- Book Genre Service Functions (if they belong here) ---
 // Example:
 // export const fetchGenres = async (): Promise<AppwriteDocumentType<BookGenre>[]> => { /* ... */ };

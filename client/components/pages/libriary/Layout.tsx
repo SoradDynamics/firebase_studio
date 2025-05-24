@@ -40,6 +40,7 @@ import { icon } from "leaflet";
 import ConfigureGenresPage from "./components/Genre/ConfigureGenresPage";
 import BookEntryPage from "./components/BookEntry/BookEntryPage";
 import LibraryMemberHubPage from "./components/BorrowBook/LibraryMemberHubPage";
+import LibraryDashboardPage from "./components/Dashboard/LibraryDashboardPage";
 // import ManageLibraryMembersPage from "./components/BorrowBook/ManageLibraryMembersPage";
 
 
@@ -59,7 +60,7 @@ export default function Layout() {
   };
 
   const sidebarItems = [
-    { name: "Dashboard", icon: HomeIcon, component: DashboardComponent },
+    { name: "Dashboard", icon: HomeIcon, component: LibraryDashboardPage },
     { name: "Bus Location", icon: BusIcon, component: MapComponent },
     { name: "Calendar", icon: CalendarIcon, component: Calendar },
     { name: "Genre", icon: FileIcon, component: ConfigureGenresPage },
