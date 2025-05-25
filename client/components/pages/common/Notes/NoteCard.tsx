@@ -33,7 +33,7 @@ const NoteCard: React.FC<NoteCardProps> = ({ note }) => {
       console.log("Generated download URL:", url.href);
 
       const a = document.createElement('a');
-      a.href = url.href;
+      a.href = url;
       a.download = fileName;
       document.body.appendChild(a);
       a.click();
