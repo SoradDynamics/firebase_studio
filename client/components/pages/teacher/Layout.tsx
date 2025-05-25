@@ -2,6 +2,8 @@
 import { Outlet } from "@remix-run/react";
 import Sidebar from "components/common/Sidebar";
 import Navbar from "./Navbar"; // Import Navbar
+import { TeacherProvider } from "./context/TeacherContext";
+
 import { useState, useEffect } from "react";
 import {
   HomeIcon,
@@ -14,6 +16,9 @@ import {
 } from "@heroicons/react/24/outline";
 import { BellIcon, BookIcon, BusIcon, CalendarIcon, ImportIcon, MapIcon, UsersIcon, WrenchIcon } from "components/icons";
 import ApproveLeavePage from "./components/LeaveApprove/ApproveLeavePage";
+import TeacherMarksEntryPage from "../common/Result/components/TeacherMarksEntryPage";
+import AssignClassTeacherPage from "../admin/components/ClassTeacher/AssignClassTeacherPage";
+import TeacherAssignmentsPage from "./components/Assignment/TeacherAssignmentsPage";
 
 
 // Define dummy components
@@ -42,6 +47,8 @@ export default function Layout() {
 
   const sidebarItems = [
     { name: "Dashboard", icon: HomeIcon, component: DashboardComponent },
+    { name: "Result", icon: UserCircleIcon, component: TeacherMarksEntryPage }, // Profile component
+    { name: "Assignment", icon: BellIcon, component: TeacherAssignmentsPage }, // Notification component
     {
       name: "Students",
       icon: UsersIcon,
@@ -96,7 +103,7 @@ export default function Layout() {
 
 
   return (
-
+    <TeacherProvider>
     <div className="flex h-screen bg-gray-100/40">
       <Sidebar
         sidebarState={sidebarState}
@@ -118,5 +125,6 @@ export default function Layout() {
         </main>
       </div>
     </div>
+    </TeacherProvider>
   );
 }

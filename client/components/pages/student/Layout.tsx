@@ -46,6 +46,7 @@ import Attd_Calendar from "./components/Attd_Calendar/Calendar";
 import StudentExamViewPage from "./components/Exam";
 import StudentAttendancePage from "./components/Attendance/StudentAttendancePage";
 import MyRoutinePage from "./components/Routine/MyRoutinePage";
+import StudentDashboardPage from "./components/Result/StudentDashboardPage";
 
 export default function Layout() {
   const [sidebarState, setSidebarState] = useState<number>(() => {
@@ -68,6 +69,7 @@ export default function Layout() {
     { name: "Exam", icon: UsersIcon, component: StudentExamViewPage },
     { name: "Calendar", icon: CalendarIcon, component: Calendar },
     { name: "Routine", icon: CalendarIcon, component: MyRoutinePage },
+    {name: "Result", icon: UsersIcon, component: StudentDashboardPage}, // Main Attendance component
 
     {
       name: "Attendance",

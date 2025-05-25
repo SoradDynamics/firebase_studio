@@ -63,6 +63,17 @@ async function getCurrentUserEmail() {
   
 export { getCurrentUserEmail };
 
+export const getCurrentUser = async (): Promise<Models.User<Models.Preferences> | null> => {
+  try {
+    const user = await account.get();
+    return user;
+  } catch (error) {
+    // console.warn("AppwriteAuth: No active session or error fetching user.", error);
+    return null;
+  }
+};
+
+
 export const APPWRITE_DATABASE_ID= import.meta.env.VITE_APPWRITE_DATABASE_ID;
 export const FACULTIES_COLLECTION_ID = import.meta.env.VITE_APPWRITE_FACULTY_COLLECTION_ID;
 export const SECTIONS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_SECTION_COLLECTION_ID;
@@ -77,3 +88,6 @@ export const TEACHERS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_TEACHER_COLL
 
 export const APPWRITE_COLLECTION_GALLERY_ID = import.meta.env.VITE_APPWRITE_GALLERY_COLLECTION_ID;
 export const APPWRITE_BUCKET_GALLERY_ID = import.meta.env.VITE_APPWRITE_GALLERY_BUCKET_ID;
+
+export const ASSIGNMENT_FILES_BUCKET_ID = import.meta.env.VITE_APPWRITE_ASSIGNMENT_FILES_BUCKET_ID;
+export const ASSIGNMENT_COLLECTION_ID = import.meta.env.VITE_APPWRITE_ASSIGNMENT_COLLECTION_ID;
