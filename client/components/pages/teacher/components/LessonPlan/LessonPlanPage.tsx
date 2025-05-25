@@ -1,152 +1,167 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Spinner } from '@heroui/react';
-import { PlusIcon } from '@heroicons/react/24/solid';
-import { useLessonPlanStore } from '~/store/lessonPlanStore';
+import { PlusIcon } from '@heroicons/react/24/outline';
+import { useLessonPlanStore, LessonPlan } from '~/store/lessonPlanStore';
 import LessonPlanFilters from './LessonPlanFilters';
 import LessonPlanCard from './LessonPlanCard';
-import { Drawer } from '../../../../common/Drawer'; // Adjust path
 import LessonPlanForm from './LessonPlanForm';
 import LessonPlanDetailView from './LessonPlanDetailView';
-import Popover from '../../../../common/Popover'; // Adjust path
+import Popover from '../../../../common/Popover'; // Assuming path
 
 const LessonPlanPage: React.FC = () => {
   const {
-    fetchTeacherInfoAndAssignments,
-    loadLessonPlans,
-    isLoadingAssignments,
-    isLoadingLessonPlans,
-    lessonPlans,
-    error,
-    isDrawerOpen,
-    drawerMode,
-    closeDrawer,
-    openDrawer,
-    isDeleteModalOpen,
-    closeDeleteModal,
-    confirmDeleteLessonPlan,
-    isSubmitting,
-    filters,
-    teacherInfo, // Get teacherInfo to check if assignments are loaded
+    teacherProfile, fetchTeacherProfile, isLoadingTeacherProfile,
+    assignedContexts, isLoadingContexts,
+    lessonPlans, isLoadingLessonPlans,
+    selectedLessonPlan, selectLessonPlan,
+    deleteLessonPlan, isSubmittingLessonPlan,
+    error, setError,
   } = useLessonPlanStore();
 
-  const initialLoadDone = useRef(false); // To prevent useEffect from running multiple times due to state changes it causes
+  const [isFormDrawerOpen, setIsFormDrawerOpen] = useState(false);
+  const [lessonPlanToEdit, setLessonPlanToEdit] = useState<LessonPlan | null>(null);
+  const [isDeletePopoverOpen, setIsDeletePopoverOpen] = useState(false);
+  const [lessonPlanIdToDelete, setLessonPlanIdToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    // This effect handles the initial fetching of teacher assignments and subsequent lesson plans.
-    // It should ideally run once, or when essential dependencies for fetching change.
-    if (!initialLoadDone.current) {
-      const init = async () => {
-        // Fetch assignments first
-        await fetchTeacherInfoAndAssignments();
-        // After assignments are fetched, teacherInfo should be available.
-        // Then load lesson plans. The loadLessonPlans function itself checks for teacherInfo.
-        // This ensures loadLessonPlans runs with the necessary context.
-        loadLessonPlans();
-      };
-      init();
-      initialLoadDone.current = true;
-    }
-  }, [fetchTeacherInfoAndAssignments, loadLessonPlans]); // Keep dependencies, Zustand actions are stable.
+    fetchTeacherProfile();
+  }, [fetchTeacherProfile]);
+
+  // Clear error when component unmounts or selected plan changes
+  useEffect(() => {
+    return () => {
+      setError(null);
+    };
+  }, [setError, selectedLessonPlan]);
+
 
   const handleAddLessonPlan = () => {
-    if (!filters.facultyId || !filters.className || !filters.sectionId || !filters.subject) {
-        alert("Please select Faculty, Class, Section, and Subject from the filters before adding a new lesson plan.");
-        return;
+    setLessonPlanToEdit(null);
+    setIsFormDrawerOpen(true);
+    setError(null);
+  };
+
+  const handleEditLessonPlan = (plan: LessonPlan) => {
+    setLessonPlanToEdit(plan);
+    setIsFormDrawerOpen(true);
+    setError(null);
+  };
+
+  const handleDeleteRequest = (planId: string) => {
+    setLessonPlanIdToDelete(planId);
+    setIsDeletePopoverOpen(true);
+    setError(null);
+  };
+
+  const confirmDeleteLessonPlan = async () => {
+    if (lessonPlanIdToDelete) {
+      const success = await deleteLessonPlan(lessonPlanIdToDelete);
+      if(success) {
+        setIsDeletePopoverOpen(false);
+        setLessonPlanIdToDelete(null);
+        if (selectedLessonPlan?.$id === lessonPlanIdToDelete) {
+          selectLessonPlan(null); // Clear detail view if deleted item was shown
+        }
+      }
     }
-    openDrawer('add');
   };
 
-  const getDrawerTitle = () => {
-    if (drawerMode === 'add') return 'Create New Lesson Plan';
-    if (drawerMode === 'edit') return 'Edit Lesson Plan';
-    if (drawerMode === 'view') return 'Lesson Plan Details';
-    return 'Lesson Plan';
+  const handleViewDetails = (plan: LessonPlan) => {
+    selectLessonPlan(plan);
+    setError(null);
   };
 
-  const handleRetryLoad = () => {
-    initialLoadDone.current = false; // Allow re-running the effect
-    // Manually trigger the functions again if the effect doesn't re-run as expected
-    // (though changing initialLoadDone.current and having the dependencies should work)
-    fetchTeacherInfoAndAssignments().then(() => loadLessonPlans());
+  const handleBackFromDetails = () => {
+    selectLessonPlan(null);
   };
+
+  if (isLoadingTeacherProfile || (teacherProfile && isLoadingContexts && assignedContexts.length === 0)) {
+    return <div className="flex justify-center items-center h-screen"><Spinner label="Loading teacher data..." size="lg" /></div>;
+  }
+
+  if (!teacherProfile) {
+    return <div className="p-6 text-center text-red-600">Error: Teacher profile could not be loaded. {error}</div>;
+  }
+  
+  if (assignedContexts.length === 0 && !isLoadingContexts) {
+    return (
+        <div className="p-6 text-center">
+            <h1 className="text-2xl font-semibold mb-4">Lesson Plans</h1>
+            <p className="text-gray-600">
+                You are not currently assigned to any classes/subjects in the routine.
+                Please contact an administrator if you believe this is an error.
+            </p>
+        </div>
+    );
+  }
+
 
   return (
-    <div className="container mx-auto p-4 md:p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">My Lesson Plans</h1>
-        <Button color="primary" onPress={handleAddLessonPlan} startContent={<PlusIcon className="h-5 w-5"/>}>
-          Add Lesson Plan
-        </Button>
-      </div>
-
-      <LessonPlanFilters />
-
-      {isLoadingAssignments && (
-        <div className="flex justify-center items-center py-10">
-          <Spinner label="Loading your teaching assignments..." />
+    <div className="p-4 md:p-6">
+      {/* Error Display */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded relative" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+          <span className="absolute top-0 bottom-0 right-0 px-4 py-3" onClick={() => setError(null)}>
+            <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+          </span>
         </div>
       )}
 
-      {/* Show error only if not loading assignments (to avoid showing error during initial load) */}
-      {error && !isLoadingAssignments && (
-        <div className="text-center py-10 text-red-500 bg-red-50 p-4 rounded-md">
-            <p className="font-semibold">An Error Occurred</p>
-            <p>{error}</p>
-            <Button color="danger" variant="ghost" onPress={handleRetryLoad} className="mt-2">
-                Try Reloading
+      {selectedLessonPlan ? (
+        <LessonPlanDetailView
+          plan={selectedLessonPlan}
+          onBack={handleBackFromDetails}
+          onEdit={handleEditLessonPlan}
+          onDeleteRequest={handleDeleteRequest}
+        />
+      ) : (
+        <>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-semibold text-gray-800">My Lesson Plans</h1>
+            <Button color="primary" onClick={handleAddLessonPlan} startContent={<PlusIcon className="h-5 w-5" />}>
+              Add Lesson Plan
             </Button>
-        </div>
+          </div>
+
+          <LessonPlanFilters />
+
+          {isLoadingLessonPlans && <div className="flex justify-center p-10"><Spinner label="Loading lesson plans..." /></div>}
+          
+          {!isLoadingLessonPlans && lessonPlans.length === 0 && (
+            <p className="text-center text-gray-500 py-10">No lesson plans found matching your criteria. Try adjusting filters or adding a new one.</p>
+          )}
+
+          {!isLoadingLessonPlans && lessonPlans.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {lessonPlans.map((plan) => (
+                <LessonPlanCard
+                  key={plan.$id}
+                  plan={plan}
+                  onEdit={handleEditLessonPlan}
+                  onDelete={handleDeleteRequest}
+                  onViewDetails={handleViewDetails}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Show lesson plan content only if assignments are loaded and no error */}
-      {!isLoadingAssignments && !error && teacherInfo && ( // Ensure teacherInfo is present, meaning assignments attempt is done
-        isLoadingLessonPlans ? (
-          <div className="flex justify-center items-center py-10">
-            <Spinner label="Loading lesson plans..." />
-          </div>
-        ) : lessonPlans.length === 0 ? (
-          <div className="text-center py-10 text-gray-500">
-            <p>No lesson plans found matching your criteria.</p>
-            <p>Try adjusting filters or create a new lesson plan.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {lessonPlans.map(lp => (
-              <LessonPlanCard key={lp.$id} lessonPlan={lp} />
-            ))}
-          </div>
-        )
-      )}
-      {/* Case where assignments might have loaded but no teacherInfo (should not happen if logic is correct) */}
-       {!isLoadingAssignments && !error && !teacherInfo && (
-         <div className="text-center py-10 text-gray-500">
-            <p>Could not load teacher information. Please try reloading.</p>
-             <Button color="default" variant="ghost" onPress={handleRetryLoad} className="mt-2">
-                Reload
-            </Button>
-        </div>
-       )}
-
-
-      <Drawer
-        isOpen={isDrawerOpen}
-        onClose={closeDrawer}
-        title={getDrawerTitle()}
-        size={drawerMode === 'view' ? 'lg' : 'xl'}
-      >
-        <Drawer.Header>{getDrawerTitle()}</Drawer.Header>
-        <Drawer.Body>
-          {drawerMode === 'view' ? <LessonPlanDetailView /> : <LessonPlanForm />}
-        </Drawer.Body>
-      </Drawer>
+      <LessonPlanForm
+        isOpen={isFormDrawerOpen}
+        onClose={() => setIsFormDrawerOpen(false)}
+        lessonPlanToEdit={lessonPlanToEdit}
+      />
 
       <Popover
-        isOpen={isDeleteModalOpen}
-        onClose={closeDeleteModal}
+        isOpen={isDeletePopoverOpen}
+        onClose={() => setIsDeletePopoverOpen(false)}
         onConfirm={confirmDeleteLessonPlan}
         title="Confirm Deletion"
         content="Are you sure you want to delete this lesson plan? This action cannot be undone."
-        isConfirmLoading={isSubmitting}
+        isConfirmLoading={isSubmittingLessonPlan}
       />
     </div>
   );

@@ -19,7 +19,7 @@ const RoutineCard: React.FC<RoutineCardProps> = ({ routine, onEdit, onDelete }) 
             <h4 className="text-lg font-semibold text-gray-800">
                 {routine.sectionName}
             </h4>
-            <p className="text-xs text-gray-500">
+            <p className="text text-gray-500">
                 {routine.facultyName} - Class {routine.class}
             </p>
         </div>
@@ -34,24 +34,32 @@ const RoutineCard: React.FC<RoutineCardProps> = ({ routine, onEdit, onDelete }) 
           routine.descDisplay.map((item, index) => (
             <div key={item.id || index} className="p-3 border rounded-md bg-white">
               <div className="flex justify-between items-start">
-                <p className="font-medium text-sm text-indigo-600 capitalize">
-                  {index + 1}. {item.type}
+               
+
+               <div className=' flex gap-4'>
+                <p className="font-medium text-indigo-600 capitalize">
+                  {index + 1}.
                 </p>
-                <Chip size="sm" variant="flat" color="default" className="text-xs">
-                  {item.fromTime} - {item.toTime}
-                </Chip>
-              </div>
-              {item.type === 'period' && (
-                <div className="mt-1.5 text-xs text-gray-600 space-y-0.5">
+
+                {item.type === 'period' && (
+                <div className=" text text-gray-600 space-y-0.5">
                   <p><span className="font-semibold">Subject:</span> {item.subject}</p>
                   <p><span className="font-semibold">Teacher:</span> {item.teacherName}</p>
                 </div>
               )}
               {item.type === 'break' && (
-                <div className="mt-1.5 text-xs text-gray-600">
-                  <p><span className="font-semibold">Name:</span> {item.name}</p>
+                <div className=" text font-semibold text-gray-600">
+                  <p> {item.name}</p>
                 </div>
               )}
+              
+</div>
+
+                <Chip size="md" variant="flat" color="default" className="text">
+                  {item.fromTime} - {item.toTime}
+                </Chip>
+              </div>
+              
             </div>
           ))
         ) : (

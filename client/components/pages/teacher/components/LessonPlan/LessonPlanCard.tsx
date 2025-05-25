@@ -1,62 +1,55 @@
 import React from 'react';
-import { Card, CardHeader, CardBody, CardFooter, Divider, Button as NextUIButton } from '@heroui/react'; // Assuming heroUI is NextUI v2 like
-import { EyeIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { LessonPlan } from 'types/lesson_plan';
-import { useLessonPlanStore } from '~/store/lessonPlanStore';
-import ActionButton from '../../../../common/ActionButton'; // Adjust path
+import { Card, CardHeader, CardBody, CardFooter, Chip, Button } from '@heroui/react';
+import ActionButton from '../../../../common/ActionButton'; // Assuming path
+import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { LessonPlan, useLessonPlanStore } from '~/store/lessonPlanStore';
 
 interface LessonPlanCardProps {
-  lessonPlan: LessonPlan;
+  plan: LessonPlan;
+  onEdit: (plan: LessonPlan) => void;
+  onDelete: (planId: string) => void;
+  onViewDetails: (plan: LessonPlan) => void;
 }
 
-const LessonPlanCard: React.FC<LessonPlanCardProps> = ({ lessonPlan }) => {
-  const { openDrawer, openDeleteModal } = useLessonPlanStore(state => ({
-    openDrawer: state.openDrawer,
-    openDeleteModal: state.openDeleteModal,
-  }));
+const statusColors: Record<string, "success" | "warning" | "primary" | "default"> = {
+    planned: "primary",
+    completed: "success",
+    "partially-completed": "warning",
+};
+
+const LessonPlanCard: React.FC<LessonPlanCardProps> = ({ plan, onEdit, onDelete, onViewDetails }) => {
+  const { assignedContexts } = useLessonPlanStore();
+
+  const context = assignedContexts.find(c => 
+    c.facultyId === plan.facultyId && 
+    c.class === plan.class && 
+    c.sectionId === plan.sectionId && 
+    c.subject === plan.subject
+  );
 
   return (
-    <Card className="w-full shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="flex gap-3 px-4 py-3">
+    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+      <CardHeader className="flex justify-between items-start pb-2">
         <div className="flex flex-col">
-          <p className="text-md font-semibold">{lessonPlan.title}</p>
-          <p className="text-sm text-gray-500">
-            {lessonPlan.subject} - {lessonPlan.className} (Sec: {lessonPlan.sectionId.slice(-4)}) {/* Assuming section name isn't readily available here, show part of ID or fetch name */}
-          </p>
+            <h3 className="text-lg font-semibold text-gray-800">{plan.title}</h3>
+            <p className="text-xs text-gray-500">
+                {context ? `${context.facultyName} - ${context.class} - ${context.sectionName}` : 'Context N/A'}
+            </p>
+            <p className="text-xs text-gray-500">Subject: {plan.subject}</p>
         </div>
+        <Chip color={statusColors[plan.status] || "default"} size="sm" variant="flat">
+            {plan.status.replace('-', ' ')}
+        </Chip>
       </CardHeader>
-      <Divider />
-      <CardBody className="px-4 py-3">
-        <p className="text-sm text-gray-600 mb-1">
-            <strong>Date (BS):</strong> {lessonPlan.lessonDateBS}
-        </p>
-        <p className="text-sm text-gray-600 mb-1">
-            <strong>Status:</strong> <span className={`font-medium px-2 py-0.5 rounded-full text-xs ${lessonPlan.status === 'Completed' ? 'bg-green-100 text-green-700' : lessonPlan.status === 'Planned' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>{lessonPlan.status}</span>
-        </p>
-        <p className="text-sm text-gray-600 truncate">
-            <strong>Desc:</strong> {lessonPlan.description}
-        </p>
+      <CardBody className="py-2">
+        <p className="text-sm text-gray-600 line-clamp-2 mb-1">{plan.description}</p>
+        <p className="text-xs text-gray-500">Date (BS): {plan.lessonDateBS}</p>
+        <p className="text-xs text-gray-500">Est. Periods: {plan.estimatedPeriods}</p>
       </CardBody>
-      <Divider />
-      <CardFooter className="px-4 py-3 flex justify-end gap-2">
-        <ActionButton
-          icon={<EyeIcon className="h-5 w-5" />}
-          onClick={() => openDrawer('view', lessonPlan)}
-          color="blue"
-          isIconOnly
-        />
-        <ActionButton
-          icon={<PencilIcon className="h-5 w-5" />}
-          onClick={() => openDrawer('edit', lessonPlan)}
-          color="orange"
-          isIconOnly
-        />
-        <ActionButton
-          icon={<TrashIcon className="h-5 w-5" />}
-          onClick={() => lessonPlan.$id && openDeleteModal(lessonPlan.$id)}
-          color="red"
-          isIconOnly
-        />
+      <CardFooter className="flex justify-end gap-2 pt-2">
+        <ActionButton icon={<EyeIcon className="h-4 w-4" />} onClick={() => onViewDetails(plan)} color="blue" />
+        <ActionButton icon={<PencilIcon className="h-4 w-4" />} onClick={() => onEdit(plan)} color="orange" />
+        <ActionButton icon={<TrashIcon className="h-4 w-4" />} onClick={() => onDelete(plan.$id)} color="red" />
       </CardFooter>
     </Card>
   );

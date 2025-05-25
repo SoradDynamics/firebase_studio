@@ -1,301 +1,225 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Input, Textarea, Select, SelectItem } from '@heroui/react'; // Using HeroUI select for simplicity here, or replace with CustomSelect logic
-import CustomSelect, { SelectOption as CustomSelectOption} from '../../../common/CustomSelect';
-import { useLessonPlanStore } from '~/store/lessonPlanStore';
-import { LessonPlan, LessonPlanFormData } from 'types/lesson_plan';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Input, Textarea, Button } from '@heroui/react';
+import CustomSelect, { SelectOption } from '../../../common/CustomSelect';
+import { Drawer } from '../../../../common/Drawer';
+import { useLessonPlanStore, LessonPlan, LessonPlanFormData, getUniqueFilterOptions, TeacherContext } from '~/store/lessonPlanStore';
 
-// Helper to convert comma-separated string to array and back for form fields
-const arrayToString = (arr?: string[]): string => (arr ? arr.join(', ') : '');
-const stringToArray = (str: string): string[] => str.split(',').map(s => s.trim()).filter(s => s);
+import { StarRating } from '../../../../common/StarRating'; // Make sure path is correct
 
-const LessonPlanForm: React.FC = () => {
-  const {
-    drawerMode,
-    selectedLessonPlan,
-    submitLessonPlan,
-    isSubmitting,
-    error,
-    filters, // To pre-fill faculty, class, section, subject for 'add' mode
-    rawAssignments, // To find names for IDs
-  } = useLessonPlanStore(state => ({
-    drawerMode: state.drawerMode,
-    selectedLessonPlan: state.selectedLessonPlan,
-    submitLessonPlan: state.submitLessonPlan,
-    isSubmitting: state.isSubmitting,
-    error: state.error,
-    filters: state.filters,
-    rawAssignments: state.rawAssignments,
-  }));
+interface LessonPlanFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  lessonPlanToEdit?: LessonPlan | null;
+}
 
-  const getInitialAssignmentContext = () => {
-    if (drawerMode === 'add') {
-        // Try to find a full assignment match for the current filters
-        const matchedAssignment = rawAssignments.find(
-            a => a.facultyId === filters.facultyId &&
-                 a.className === filters.className &&
-                 a.sectionId === filters.sectionId &&
-                 a.subject === filters.subject
-        );
-        if (matchedAssignment) return matchedAssignment;
-
-        // Fallback to individual filter values if a full match isn't found
-        // (this scenario is less likely if filters are cascading correctly)
-        const faculty = rawAssignments.find(a => a.facultyId === filters.facultyId);
-        const section = rawAssignments.find(a => a.sectionId === filters.sectionId); // Using ID directly if name not resolved for some reason
-        
-        return {
-            facultyId: filters.facultyId || '',
-            facultyName: faculty?.facultyName || filters.facultyId || '',
-            className: filters.className || '',
-            sectionId: filters.sectionId || '',
-            sectionName: section?.sectionName || filters.sectionId || '',
-            subject: filters.subject || '',
-        };
-    }
-    if (selectedLessonPlan) {
-        const faculty = rawAssignments.find(a => a.facultyId === selectedLessonPlan.facultyId);
-        const section = rawAssignments.find(a => a.sectionId === selectedLessonPlan.sectionId);
-        return {
-            facultyId: selectedLessonPlan.facultyId,
-            facultyName: faculty?.facultyName || selectedLessonPlan.facultyId,
-            className: selectedLessonPlan.className,
-            sectionId: selectedLessonPlan.sectionId,
-            sectionName: section?.sectionName || selectedLessonPlan.sectionId,
-            subject: selectedLessonPlan.subject,
-        };
-    }
-    return { facultyId: '', facultyName: '', className: '', sectionId: '', sectionName: '', subject: '' };
-  };
+const LessonPlanForm: React.FC<LessonPlanFormProps> = ({ isOpen, onClose, lessonPlanToEdit }) => {
+  const { addLessonPlan, updateLessonPlan, isSubmittingLessonPlan, assignedContexts, setError } = useLessonPlanStore();
   
-  const initialContext = getInitialAssignmentContext();
-
-  const [formData, setFormData] = useState<LessonPlanFormData>({
+  const initialFormData: LessonPlanFormData = {
     title: '',
     description: '',
-    lessonDateBS: '', // YYYY-MM-DD
-    lessonDateAD: '', // YYYY-MM-DD for input, converted to ISO for submission
-    estimatedPeriods: '',
-    learningObjectives: '',
-    topicsCovered: '',
-    teachingActivities: '',
-    resourcesNeeded: '',
-    assessmentMethods: '',
-    homeworkAssignment: '',
-    status: 'Planned',
-    actualPeriodsTaken: '',
-    completionDateAD: '',
+    facultyId: '',
+    class: '',
+    sectionId: '',
+    subject: '',
+    lessonDateBS: '',
+    estimatedPeriods: 1,
+    status: 'planned',
+    learningObjectives: [],
+    teachingMaterials: [],
+    assessmentMethods: [],
     teacherReflection: '',
-    // Context fields
-    facultyId: initialContext.facultyId,
-    className: initialContext.className,
-    sectionId: initialContext.sectionId,
-    subject: initialContext.subject,
-  });
-  
-  // Display names for context fields
-  const [displayContext, setDisplayContext] = useState({
-    facultyName: initialContext.facultyName,
-    sectionName: initialContext.sectionName,
-  });
+    actualPeriodsTaken: undefined,
+    overallClassRating: 0, // <<< CHANGED: Initialized
+  };
+  const [formData, setFormData] = useState<LessonPlanFormData>(initialFormData);
 
+  const [formContext, setFormContext] = useState({
+    facultyId: lessonPlanToEdit?.facultyId || null,
+    class: lessonPlanToEdit?.class || null,
+    sectionId: lessonPlanToEdit?.sectionId || null,
+  });
 
   useEffect(() => {
-    if (drawerMode === 'edit' && selectedLessonPlan) {
-      setFormData({
-        title: selectedLessonPlan.title,
-        description: selectedLessonPlan.description,
-        lessonDateBS: selectedLessonPlan.lessonDateBS,
-        lessonDateAD: selectedLessonPlan.lessonDateAD ? new Date(selectedLessonPlan.lessonDateAD).toISOString().split('T')[0] : '',
-        estimatedPeriods: String(selectedLessonPlan.estimatedPeriods),
-        learningObjectives: arrayToString(selectedLessonPlan.learningObjectives),
-        topicsCovered: arrayToString(selectedLessonPlan.topicsCovered),
-        teachingActivities: arrayToString(selectedLessonPlan.teachingActivities),
-        resourcesNeeded: arrayToString(selectedLessonPlan.resourcesNeeded),
-        assessmentMethods: arrayToString(selectedLessonPlan.assessmentMethods),
-        homeworkAssignment: selectedLessonPlan.homeworkAssignment || '',
-        status: selectedLessonPlan.status,
-        actualPeriodsTaken: selectedLessonPlan.actualPeriodsTaken ? String(selectedLessonPlan.actualPeriodsTaken) : '',
-        completionDateAD: selectedLessonPlan.completionDateAD ? new Date(selectedLessonPlan.completionDateAD).toISOString().split('T')[0] : '',
-        teacherReflection: selectedLessonPlan.teacherReflection || '',
-        facultyId: selectedLessonPlan.facultyId,
-        className: selectedLessonPlan.className,
-        sectionId: selectedLessonPlan.sectionId,
-        subject: selectedLessonPlan.subject,
-      });
-      const faculty = rawAssignments.find(a => a.facultyId === selectedLessonPlan.facultyId);
-      const section = rawAssignments.find(a => a.sectionId === selectedLessonPlan.sectionId);
-      setDisplayContext({
-          facultyName: faculty?.facultyName || selectedLessonPlan.facultyId,
-          sectionName: section?.sectionName || selectedLessonPlan.sectionId,
-      });
-
-    } else if (drawerMode === 'add') {
-      // Pre-fill from filters
-      const context = getInitialAssignmentContext();
-      setFormData(prev => ({
-        ...prev, // keep any manually entered data if re-opening
-        title: '', description: '', lessonDateBS: '', lessonDateAD: '', estimatedPeriods: '',
-        learningObjectives: '', topicsCovered: '', teachingActivities: '', resourcesNeeded: '', assessmentMethods: '',
-        homeworkAssignment: '', status: 'Planned', actualPeriodsTaken: '', completionDateAD: '', teacherReflection: '',
-        facultyId: context.facultyId,
-        className: context.className,
-        sectionId: context.sectionId,
-        subject: context.subject,
-      }));
-      setDisplayContext({
-        facultyName: context.facultyName,
-        sectionName: context.sectionName,
-      });
+    if (isOpen) { // Only update form data when drawer opens
+        if (lessonPlanToEdit) {
+        setFormData({
+            title: lessonPlanToEdit.title,
+            description: lessonPlanToEdit.description,
+            facultyId: lessonPlanToEdit.facultyId,
+            class: lessonPlanToEdit.class,
+            sectionId: lessonPlanToEdit.sectionId,
+            subject: lessonPlanToEdit.subject,
+            lessonDateBS: lessonPlanToEdit.lessonDateBS,
+            estimatedPeriods: lessonPlanToEdit.estimatedPeriods,
+            status: lessonPlanToEdit.status,
+            learningObjectives: lessonPlanToEdit.learningObjectives || [],
+            teachingMaterials: lessonPlanToEdit.teachingMaterials || [],
+            assessmentMethods: lessonPlanToEdit.assessmentMethods || [],
+            teacherReflection: lessonPlanToEdit.teacherReflection || '',
+            actualPeriodsTaken: lessonPlanToEdit.actualPeriodsTaken,
+            overallClassRating: lessonPlanToEdit.overallClassRating || 0, // <<< CHANGED: Set from edit
+        });
+        setFormContext({
+            facultyId: lessonPlanToEdit.facultyId,
+            class: lessonPlanToEdit.class,
+            sectionId: lessonPlanToEdit.sectionId,
+        });
+        } else {
+        setFormData(initialFormData); // Reset to initial on add
+        setFormContext({ facultyId: null, class: null, sectionId: null });
+        }
     }
-  }, [drawerMode, selectedLessonPlan, filters, rawAssignments]);
+  }, [lessonPlanToEdit, isOpen]); // Added isOpen to dependencies
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const facultyOptions = useMemo(() => getUniqueFilterOptions(assignedContexts, 'facultyId'), [assignedContexts]);
+  const classOptions = useMemo(() => getUniqueFilterOptions(assignedContexts, 'class', { facultyId: formContext.facultyId }), [assignedContexts, formContext.facultyId]);
+  const sectionOptions = useMemo(() => getUniqueFilterOptions(assignedContexts, 'sectionId', { facultyId: formContext.facultyId, class: formContext.class }), [assignedContexts, formContext.facultyId, formContext.class]);
+  const subjectOptions = useMemo(() => getUniqueFilterOptions(assignedContexts, 'subject', { facultyId: formContext.facultyId, class: formContext.class, sectionId: formContext.sectionId }), [assignedContexts, formContext.facultyId, formContext.class, formContext.sectionId]);
+
+  const statusOptions: SelectOption[] = [
+    { id: 'planned', name: 'Planned' },
+    { id: 'completed', name: 'Completed' },
+    { id: 'partially-completed', name: 'Partially Completed' },
+  ];
   
-  const handleCustomSelectChange = (name: keyof LessonPlanFormData, value: string | null) => {
-     setFormData(prev => ({ ...prev, [name]: value || '' }));
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: name === 'estimatedPeriods' || name === 'actualPeriodsTaken' ? (value === '' ? undefined : Number(value)) : value }));
+  };
+
+  const handleSelectChange = (name: keyof LessonPlanFormData | keyof typeof formContext, value: string | null) => {
+    if (name === 'facultyId' || name === 'class' || name === 'sectionId') {
+        const newFormContext = { ...formContext, [name]: value };
+        if (name === 'facultyId') {
+            newFormContext.class = null; newFormContext.sectionId = null;
+            setFormData(prev => ({...prev, class: '', sectionId: '', subject: ''}));
+        } else if (name === 'class') {
+            newFormContext.sectionId = null;
+            setFormData(prev => ({...prev, sectionId: '', subject: ''}));
+        } else if (name === 'sectionId') {
+             setFormData(prev => ({...prev, subject: ''}));
+        }
+        setFormContext(newFormContext);
+        setFormData(prev => ({ ...prev, [name]: value || '' }));
+
+    } else if (name === 'subject' || name === 'status') {
+        setFormData(prev => ({ ...prev, [name]: value || '' }));
+    }
+  };
+
+  const handleArrayChange = (name: 'learningObjectives' | 'teachingMaterials' | 'assessmentMethods', value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value.split('\n').filter(s => s.trim() !== '') }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.facultyId || !formData.className || !formData.sectionId || !formData.subject) {
-        useLessonPlanStore.setState({ error: "Context (Faculty, Class, Section, Subject) must be set. Please select them from filters if adding." });
+    if (!formData.facultyId || !formData.class || !formData.sectionId || !formData.subject) {
+        setError("Faculty, Class, Section, and Subject are required.");
         return;
     }
-    const dataToSubmit: LessonPlanFormData = {
-        ...formData,
-        lessonDateAD: formData.lessonDateAD ? new Date(formData.lessonDateAD).toISOString() : new Date().toISOString(), // Default to today if empty, ensure ISO
-        estimatedPeriods: Number(formData.estimatedPeriods) || 0,
-        actualPeriodsTaken: formData.actualPeriodsTaken ? Number(formData.actualPeriodsTaken) : undefined,
-        completionDateAD: formData.completionDateAD ? new Date(formData.completionDateAD).toISOString() : undefined,
-    };
-    await submitLessonPlan(dataToSubmit);
-  };
-  
-  const statusOptions: CustomSelectOption[] = [
-    { id: 'Planned', name: 'Planned' },
-    { id: 'Completed', name: 'Completed' },
-    { id: 'Partially Completed', name: 'Partially Completed' },
-    { id: 'Postponed', name: 'Postponed' },
-    { id: 'Cancelled', name: 'Cancelled' },
-  ];
+    if (!formData.title || !formData.description || !formData.lessonDateBS) {
+        setError("Title, Description and Lesson Date are required.");
+        return;
+    }
 
+    let success = false;
+    if (lessonPlanToEdit?.$id) {
+      success = await updateLessonPlan(lessonPlanToEdit.$id, formData);
+    } else {
+      success = await addLessonPlan(formData);
+    }
+    if (success) {
+      onClose(); // This will trigger useEffect to reset form if needed
+    }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-1">
-      {/* Display Context Fields (Readonly in form) */}
-      <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-indigo-50 rounded-md">
-        <div><span className="font-semibold">Faculty:</span> {displayContext.facultyName}</div>
-        <div><span className="font-semibold">Class:</span> {formData.className}</div>
-        <div><span className="font-semibold">Section:</span> {displayContext.sectionName}</div>
-        <div><span className="font-semibold">Subject:</span> {formData.subject}</div>
-      </div>
-      
-      <Input
-        label="Title"
-        name="title"
-        value={formData.title}
-        onChange={handleChange}
-        fullWidth
-        isRequired
-        variant="bordered"
-      />
-      <Textarea
-        label="Description (What will be taught)"
-        name="description"
-        value={formData.description}
-        onChange={handleChange}
-        fullWidth
-        isRequired
-        variant="bordered"
-        minRows={3}
-      />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-            label="Lesson Date (BS - YYYY-MM-DD)"
-            name="lessonDateBS"
-            value={formData.lessonDateBS}
-            onChange={handleChange}
-            placeholder="e.g., 2080-05-15"
-            fullWidth
-            isRequired
-            variant="bordered"
-        />
-        <Input
-            type="date"
-            label="Lesson Date (AD)"
-            name="lessonDateAD"
-            value={formData.lessonDateAD}
-            onChange={handleChange}
-            fullWidth
-            isRequired
-            variant="bordered"
-        />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-            type="number"
-            label="Estimated Periods"
-            name="estimatedPeriods"
-            value={String(formData.estimatedPeriods)}
-            onChange={handleChange}
-            fullWidth
-            isRequired
-            min="1"
-            variant="bordered"
-        />
-        <CustomSelect
-            label="Status"
-            options={statusOptions}
-            value={formData.status}
-            onChange={(val) => handleCustomSelectChange('status', val)}
-            placeholder="Select status"
-            // className="w-full" // CustomSelect applies its own width constraints, use wrapper div if needed
-        />
-      </div>
-      
-      <Textarea label="Learning Objectives (comma-separated)" name="learningObjectives" value={formData.learningObjectives} onChange={handleChange} fullWidth variant="bordered" />
-      <Textarea label="Topics Covered (comma-separated)" name="topicsCovered" value={formData.topicsCovered} onChange={handleChange} fullWidth variant="bordered" />
-      <Textarea label="Teaching Activities (comma-separated)" name="teachingActivities" value={formData.teachingActivities} onChange={handleChange} fullWidth variant="bordered" />
-      <Textarea label="Resources Needed (comma-separated)" name="resourcesNeeded" value={formData.resourcesNeeded} onChange={handleChange} fullWidth variant="bordered" />
-      <Textarea label="Assessment Methods (comma-separated)" name="assessmentMethods" value={formData.assessmentMethods} onChange={handleChange} fullWidth variant="bordered" />
-      <Textarea label="Homework Assignment" name="homeworkAssignment" value={formData.homeworkAssignment || ''} onChange={handleChange} fullWidth variant="bordered" />
-
-      {formData.status === 'Completed' || formData.status === 'Partially Completed' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4 mt-4">
-            <Input
-                type="number"
-                label="Actual Periods Taken"
-                name="actualPeriodsTaken"
-                value={String(formData.actualPeriodsTaken || '')}
-                onChange={handleChange}
-                fullWidth
-                min="0"
-                variant="bordered"
+    <Drawer isOpen={isOpen} onClose={onClose} title={lessonPlanToEdit ? 'Edit Lesson Plan' : 'Add New Lesson Plan'} size="lg">
+      <form onSubmit={handleSubmit}>
+        <Drawer.Body className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CustomSelect
+              label="Faculty*"
+              options={facultyOptions}
+              value={formContext.facultyId}
+              onChange={(val) => handleSelectChange('facultyId', val)}
+              placeholder="Select Faculty"
+              disabled={facultyOptions.length === 0}
             />
-            <Input
-                type="date"
-                label="Completion Date (AD)"
-                name="completionDateAD"
-                value={formData.completionDateAD || ''}
-                onChange={handleChange}
-                fullWidth
-                variant="bordered"
+            <CustomSelect
+              label="Class*"
+              options={classOptions}
+              value={formContext.class}
+              onChange={(val) => handleSelectChange('class', val)}
+              placeholder="Select Class"
+              disabled={!formContext.facultyId || classOptions.length === 0}
             />
-        </div>
-      ) : null}
-      <Textarea label="Teacher's Reflection/Overall Review" name="teacherReflection" value={formData.teacherReflection || ''} onChange={handleChange} fullWidth variant="bordered" minRows={3}/>
+            <CustomSelect
+              label="Section*"
+              options={sectionOptions}
+              value={formContext.sectionId}
+              onChange={(val) => handleSelectChange('sectionId', val)}
+              placeholder="Select Section"
+              disabled={!formContext.class || sectionOptions.length === 0}
+            />
+            <CustomSelect
+              label="Subject*"
+              options={subjectOptions}
+              value={formData.subject}
+              onChange={(val) => handleSelectChange('subject', val as string)}
+              placeholder="Select Subject"
+              disabled={!formContext.sectionId || subjectOptions.length === 0}
+            />
+          </div>
 
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-      
-      <div className="flex justify-end pt-2">
-        <Button type="submit" color="primary" isLoading={isSubmitting} disabled={isSubmitting}>
-          {drawerMode === 'add' ? 'Create Lesson Plan' : 'Save Changes'}
-        </Button>
-      </div>
-    </form>
+          <Input name="title" label="Title*" value={formData.title} onChange={handleChange} placeholder="Enter lesson title" isRequired />
+          <Textarea name="description" label="Description*" value={formData.description} onChange={handleChange} placeholder="Detailed lesson plan activities, content, etc." minRows={3} isRequired />
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Input name="lessonDateBS" label="Lesson Date (BS)*" type="text" value={formData.lessonDateBS} onChange={handleChange} placeholder="YYYY-MM-DD" isRequired 
+                description="Enter date in Bikram Sambat format (e.g., 2080-05-15)"
+            />
+            <Input name="estimatedPeriods" label="Estimated Periods*" type="number" value={String(formData.estimatedPeriods)} onChange={handleChange} min="1" isRequired />
+            <CustomSelect
+              label="Status*"
+              options={statusOptions}
+              value={formData.status}
+              onChange={(val) => handleSelectChange('status', val as 'planned' | 'completed' | 'partially-completed')}
+            />
+          </div>
+          
+          <Textarea name="learningObjectives" label="Learning Objectives" value={formData.learningObjectives?.join('\n') || ''} onChange={e => handleArrayChange('learningObjectives', e.target.value)} placeholder="Enter one objective per line" minRows={2} />
+          <Textarea name="teachingMaterials" label="Teaching Materials / Resources" value={formData.teachingMaterials?.join('\n') || ''} onChange={e => handleArrayChange('teachingMaterials', e.target.value)} placeholder="Enter one item per line" minRows={2} />
+          <Textarea name="assessmentMethods" label="Assessment Methods" value={formData.assessmentMethods?.join('\n') || ''} onChange={e => handleArrayChange('assessmentMethods', e.target.value)} placeholder="Enter one method per line" minRows={2} />
+          
+          <hr className="my-4" />
+          <h3 className="text-md font-semibold text-gray-700">Post-Lesson Details</h3>
+          
+          {/* Overall Class Rating <<< CHANGED: Added this section */}
+          <div className="mt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Overall Class Rating</label>
+              <StarRating
+                  rating={formData.overallClassRating || 0}
+                  onRatingChange={(newRating) => setFormData(prev => ({ ...prev, overallClassRating: newRating }))}
+                  max={5}
+                  size={24} // Consistent size
+                   color="#facc15" 
+              />
+          </div>
+
+          <Input name="actualPeriodsTaken" label="Actual Periods Taken" type="number" value={formData.actualPeriodsTaken === undefined ? '' : String(formData.actualPeriodsTaken)} onChange={handleChange} min="0" />
+          <Textarea name="teacherReflection" label="Teacher's Reflection / Overall Review" value={formData.teacherReflection || ''} onChange={handleChange} placeholder="How did the lesson go? What worked, what didn't?" minRows={2} />
+
+        </Drawer.Body>
+        <Drawer.Footer>
+          <Button type="button" color="default" variant="ghost" onClick={onClose} disabled={isSubmittingLessonPlan}>Cancel</Button>
+          <Button type="submit" color="primary" isLoading={isSubmittingLessonPlan} disabled={isSubmittingLessonPlan}>
+            {lessonPlanToEdit ? 'Save Changes' : 'Create Lesson Plan'}
+          </Button>
+        </Drawer.Footer>
+      </form>
+    </Drawer>
   );
 };
 

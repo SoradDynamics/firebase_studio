@@ -1,99 +1,94 @@
-// src/features/lesson-planning/components/LessonPlanFilters.tsx
-import React, { useEffect } from 'react'; // Import useEffect
-import CustomSelect from '../../../common/CustomSelect';
-import SearchBar from '../../../common/SearchBar';
-import { useLessonPlanStore } from '~/store/lessonPlanStore';
+import React, { useMemo } from 'react';
+import CustomSelect, { SelectOption } from '../../../common/CustomSelect';
+import SearchBar from '../../../common/SearchBar'; // Assuming path
+import { useLessonPlanStore, getUniqueFilterOptions, TeacherContext } from '~/store/lessonPlanStore';
+import { Button } from '@heroui/react';
 
 const LessonPlanFilters: React.FC = () => {
-  const {
-    filters,
-    setFilter,
-    facultyOptions,
-    classOptions,
-    sectionOptions,
-    subjectOptions,
-    statusOptions,
-    _updateFilterOptions, // Get this action from the store
-    loadLessonPlans,     // Get this action from the store
-  } = useLessonPlanStore(state => ({
-    filters: state.filters,
-    setFilter: state.setFilter,
-    facultyOptions: state.facultyOptions,
-    classOptions: state.classOptions,
-    sectionOptions: state.sectionOptions,
-    subjectOptions: state.subjectOptions,
-    statusOptions: state.statusOptions,
-    _updateFilterOptions: state._updateFilterOptions, // Make sure it's exposed in store type
-    loadLessonPlans: state.loadLessonPlans,
-  }));
+  const { assignedContexts, currentFilters, setFilter, clearFilters, isLoadingContexts } = useLessonPlanStore();
 
-  // This effect will run whenever the 'filters' object changes.
-  // This is where we'll now trigger the dependent actions.
-  useEffect(() => {
-    console.log('[LessonPlanFilters useEffect] Filters changed:', filters);
-    _updateFilterOptions(); // Update the dropdown options based on the new filters
-    loadLessonPlans();      // Load lesson plans based on the new filters
-  }, [filters, _updateFilterOptions, loadLessonPlans]); // Dependencies
+  const facultyOptions = useMemo(() => getUniqueFilterOptions(assignedContexts, 'facultyId'), [assignedContexts]);
+  const classOptions = useMemo(() => getUniqueFilterOptions(assignedContexts, 'class', { facultyId: currentFilters.facultyId }), [assignedContexts, currentFilters.facultyId]);
+  const sectionOptions = useMemo(() => getUniqueFilterOptions(assignedContexts, 'sectionId', { facultyId: currentFilters.facultyId, class: currentFilters.class }), [assignedContexts, currentFilters.facultyId, currentFilters.class]);
+  const subjectOptions = useMemo(() => getUniqueFilterOptions(assignedContexts, 'subject', { facultyId: currentFilters.facultyId, class: currentFilters.class, sectionId: currentFilters.sectionId }), [assignedContexts, currentFilters.facultyId, currentFilters.class, currentFilters.sectionId]);
 
-  const handleFilterChange = <K extends keyof typeof filters>(
-    filterName: K,
-    value: (typeof filters)[K]
-  ) => {
-    console.log(`[LessonPlanFilters handleFilterChange] Setting filter ${String(filterName)} to`, value);
+  const statusOptions: SelectOption[] = [
+    { id: 'planned', name: 'Planned' },
+    { id: 'completed', name: 'Completed' },
+    { id: 'partially-completed', name: 'Partially Completed' },
+  ];
+
+  const handleFilterChange = (filterName: keyof typeof currentFilters, value: string | null) => {
     setFilter(filterName, value);
-    // The useEffect above will handle _updateFilterOptions and loadLessonPlans
+    // Reset dependent filters
+    if (filterName === 'facultyId') {
+        setFilter('class', null);
+        setFilter('sectionId', null);
+        setFilter('subject', null);
+    } else if (filterName === 'class') {
+        setFilter('sectionId', null);
+        setFilter('subject', null);
+    } else if (filterName === 'sectionId') {
+        setFilter('subject', null);
+    }
   };
 
   return (
     <div className="p-4 bg-gray-50 rounded-lg shadow mb-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
         <CustomSelect
           label="Faculty"
           options={facultyOptions}
-          value={filters.facultyId}
-          onChange={(id) => handleFilterChange('facultyId', id)}
+          value={currentFilters.facultyId || null}
+          onChange={(val) => handleFilterChange('facultyId', val)}
           placeholder="All Faculties"
+          disabled={isLoadingContexts || facultyOptions.length === 0}
         />
         <CustomSelect
           label="Class"
           options={classOptions}
-          value={filters.className}
-          onChange={(id) => handleFilterChange('className', id)}
+          value={currentFilters.class || null}
+          onChange={(val) => handleFilterChange('class', val)}
           placeholder="All Classes"
-          disabled={!filters.facultyId && facultyOptions.length > 0}
+          disabled={isLoadingContexts || !currentFilters.facultyId || classOptions.length === 0}
         />
         <CustomSelect
           label="Section"
           options={sectionOptions}
-          value={filters.sectionId}
-          onChange={(id) => handleFilterChange('sectionId', id)}
+          value={currentFilters.sectionId || null}
+          onChange={(val) => handleFilterChange('sectionId', val)}
           placeholder="All Sections"
-          disabled={!filters.className && classOptions.length > 0}
+          disabled={isLoadingContexts || !currentFilters.class || sectionOptions.length === 0}
         />
         <CustomSelect
           label="Subject"
           options={subjectOptions}
-          value={filters.subject}
-          onChange={(id) => handleFilterChange('subject', id)}
+          value={currentFilters.subject || null}
+          onChange={(val) => handleFilterChange('subject', val)}
           placeholder="All Subjects"
-          disabled={!filters.sectionId && sectionOptions.length > 0}
+          disabled={isLoadingContexts || !currentFilters.sectionId || subjectOptions.length === 0}
         />
         <CustomSelect
           label="Status"
           options={statusOptions}
-          value={filters.status}
-          onChange={(id) => handleFilterChange('status', id)}
+          value={currentFilters.status || null}
+          onChange={(val) => handleFilterChange('status', val)}
           placeholder="Any Status"
         />
-        <div className="lg:col-span-1">
-            <label htmlFor="search-lesson-plan" className="block text-sm font-medium text-gray-700 mb-1">Search Title</label>
-            <SearchBar
-                placeholder="Search by title..."
-                value={filters.searchText}
-                onValueChange={(text) => handleFilterChange('searchText', text)}
-                className="w-full"
-            />
-        </div>
+        <SearchBar
+          placeholder="Search by title..."
+          value={currentFilters.searchText || ''}
+          onValueChange={(val) => handleFilterChange('searchText', val)}
+          className="md:col-span-2 lg:col-span-1"
+        />
+         <Button
+            color="default"
+            variant="ghost"
+            onClick={clearFilters}
+            className="h-10"
+            >
+            Clear Filters
+        </Button>
       </div>
     </div>
   );
