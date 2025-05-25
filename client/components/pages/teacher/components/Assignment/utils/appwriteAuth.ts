@@ -1,3 +1,7 @@
+//utils/appwriteAuth.ts
+
+//for auth 
+
 import { account } from '~/utils/appwrite'; // Ensure this path is correct
 import { Models } from 'appwrite';
 

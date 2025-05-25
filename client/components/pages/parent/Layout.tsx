@@ -18,6 +18,8 @@ import ViewStudentRoutinePage from "./components/Routine/ViewStudentRoutinePage"
 import ParentNotesPage from "./components/Notes/ParentNotesPage";
 import ParentGalleryPage from "./components/Gallery/ParentGalleryPage";
 import ParentLessonPlansPage from "./components/Lesson/ParentLessonPlansPage";
+import ParentStudentReviewsPage from "./components/Review/ParentStudentReviewsPage";
+import ParentAssignmentsPage from "./components/Assignment/ParentAssignmentsPage";
 
 
 // Define dummy components (as before)
@@ -65,6 +67,9 @@ export default function Layout() {
     { name: "Notes", icon: HomeIcon, component:ParentNotesPage },
     { name: "Gallery", icon: HomeIcon, component:ParentGalleryPage },
     { name: "Lesson", icon: HomeIcon, component:ParentLessonPlansPage },
+    { name: "Review", icon: HomeIcon, component:ParentStudentReviewsPage },
+    { name: "Assignment", icon: HomeIcon, component:ParentAssignmentsPage },
+
 
 
 

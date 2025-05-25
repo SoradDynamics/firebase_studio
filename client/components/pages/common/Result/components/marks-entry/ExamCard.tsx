@@ -1,37 +1,35 @@
 import React from 'react';
 import { Exam } from '../../types/appwrite.types';
-import { Card, CardBody, CardHeader, Chip } from '@heroui/react';
+import { Card, CardBody, CardHeader, Chip } from '@heroui/react'; // Assuming HeroUI imports
 import { UsersIcon, BookOpenIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
 
 interface ExamCardProps {
   exam: Exam;
-  entryPercentage: number | null | undefined; // Allow undefined from parent
+  entryPercentage: number | null | undefined;
   onSelect: (exam: Exam) => void;
   isSelected: boolean;
   facultyNames: string[];
 }
 
 const ExamCard: React.FC<ExamCardProps> = ({ exam, entryPercentage, onSelect, isSelected, facultyNames }) => {
-  // Handle undefined explicitly: convert to null for internal logic
   const currentPercentage: number | null = entryPercentage === undefined ? null : entryPercentage;
 
   const getPercentageColor = (percentage: number | null): "primary" | "success" | "warning" | "default" | "danger" => {
-    if (percentage === null) return "warning"; // Calculating
-    if (percentage === -2) return "danger";   // Error
-    if (percentage === -1) return "default";  // N/A
+    if (percentage === null) return "warning";
+    if (percentage === -2) return "danger";
+    if (percentage === -1) return "default";
     if (percentage >= 95) return "success";
     if (percentage >= 50) return "primary";
-    return "default"; // For 0-49%
+    return "default";
   };
 
   const getPercentageText = (percentage: number | null): string => {
     if (percentage === null) return "Calculating...";
-    if (percentage === -1) return "N/A"; // Simpler text for Not Applicable
+    if (percentage === -1) return "N/A";
     if (percentage === -2) return "Error";
-    return `${percentage.toFixed(0)}% Entered`; // Safe now because undefined is handled
+    return `${percentage.toFixed(0)}% Entered`;
   };
 
-  // Use currentPercentage which handles undefined
   const percentageValueForBar = currentPercentage !== null && currentPercentage >= 0 ? currentPercentage : 0;
   const percentageColor = getPercentageColor(currentPercentage);
   const percentageText = getPercentageText(currentPercentage);
@@ -45,9 +43,16 @@ const ExamCard: React.FC<ExamCardProps> = ({ exam, entryPercentage, onSelect, is
       }`}
     >
       <CardHeader className="p-5 border-b border-gray-100 bg-gray-50">
-        <div className="flex justify-between items-center w-full">
-          <h4 className="font-bold text-lg text-gray-900 truncate" title={exam.title}>{exam.title}</h4>
-          <Chip size="sm" color="secondary" variant="flat">{exam.type}</Chip>
+        <div className="flex justify-between items-start w-full">
+          <h4 className="font-bold text-lg text-gray-900 truncate mr-2" title={exam.title}>{exam.title}</h4>
+          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 flex-shrink-0">
+            {exam.isPublished && (
+              <Chip size="sm" color={exam.isGpa ? "success" : "primary"} variant="flat">
+                {exam.isGpa ? "Published (GPA)" : "Published (Marks)"}
+              </Chip>
+            )}
+            <Chip size="sm" color="secondary" variant="flat">{exam.type}</Chip>
+          </div>
         </div>
         {exam.desc && <p className="text-xs text-gray-500 mt-1 line-clamp-1">{exam.desc}</p>}
       </CardHeader>
@@ -73,29 +78,26 @@ const ExamCard: React.FC<ExamCardProps> = ({ exam, entryPercentage, onSelect, is
             </Chip>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-            {currentPercentage === null ? ( // Calculating state
+            {currentPercentage === null ? (
               <div
                 className="bg-yellow-400 h-2.5 rounded-full animate-pulse"
                 style={{ width: '100%' }}
               ></div>
-            ) : currentPercentage >= 0 ? ( // Actual percentage (0 to 100)
+            ) : currentPercentage >= 0 ? (
               <div
                 className={`h-2.5 rounded-full transition-all duration-500 ${
                   percentageColor === 'success' ? 'bg-green-600' :
                   percentageColor === 'primary' ? 'bg-blue-600' :
-                  // percentageColor === 'warning' should not happen here as null is handled above
-                  'bg-gray-400' // Default for 0-49%
+                  'bg-gray-400'
                 }`}
                 style={{ width: `${percentageValueForBar}%` }}
               ></div>
-            ) : ( // For N/A (-1) or Error (-2), show an empty or specific static bar
+            ) : (
               <div
                 className={`h-2.5 rounded-full ${
-                  currentPercentage === -2 ? 'bg-red-500' : 'bg-gray-300' // Error red, N/A gray
+                  currentPercentage === -2 ? 'bg-red-500' : 'bg-gray-300'
                 }`}
-                // For N/A or Error, you might want a 0% width bar or a full small static segment
-                // style={{ width: '0%' }} // Option 1: Empty bar
-                 style={{ width: '100%' }} // Option 2: Full bar of the status color (subtle)
+                 style={{ width: '100%' }}
               ></div>
             )}
           </div>

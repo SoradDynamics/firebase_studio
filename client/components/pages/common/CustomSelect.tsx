@@ -108,7 +108,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
 
       {isOpen && (
         <ul
-          className="absolute z-20 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm"
+          className="absolute z-[9999999999999999] mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm"
           role="listbox"
         >
           {/* Option to select placeholder text, effectively clearing the filter */}

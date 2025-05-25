@@ -1,4 +1,4 @@
-// src/store/reviewStore.ts (Create this file)
+// src/store/reviewStore.ts
 import { create } from 'zustand';
 import {
   ClassTeacherInfo,
@@ -7,26 +7,29 @@ import {
   TeacherDocument,
   SectionDocument,
   FacultyDocument,
-  Review,
-  StudentDocument,
 } from 'types/review';
 import {
   databases,
   Query,
-  ID,
-  getCurrentUserEmail,
+  ID as AppwriteID,
+  account,
+  // getCurrentUserEmail, // classTeacherInfo.email is used
   APPWRITE_DATABASE_ID,
-  TEACHERS_COLLECTION_ID, // Assuming you have this constant, similar to FACULTIES_COLLECTION_ID
+  TEACHERS_COLLECTION_ID,
   SECTIONS_COLLECTION_ID,
   STUDENTS_COLLECTION_ID,
   FACULTIES_COLLECTION_ID,
   REVIEWS_COLLECTION_ID,
-  account,
 } from '~/utils/appwrite';
-import { Models } from 'appwrite';
+import { createNotificationEntry, getTomorrowDateString, NotificationData } from '~/utils/notification';
 
-// Make sure TEACHERS_COLLECTION_ID is defined in appwrite.ts and .env
-// export const TEACHERS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_TEACHER_COLLECTION_ID;
+type ReviewFormData = {
+  type: string;
+  description: string;
+  rating?: string;
+  reviewDate: string; // AD Date string (YYYY-MM-DD)
+};
+
 
 interface ReviewState {
   isInitializing: boolean;
@@ -56,16 +59,16 @@ interface ReviewState {
     checkAuthAndLoadTeacherInfo: () => Promise<void>;
     setStudentSearchTerm: (term: string) => void;
     searchStudents: () => Promise<void>;
-    selectStudent: (student: StudentWithDetails | null) => Promise<void>; // Also fetches reviews
+    selectStudent: (student: StudentWithDetails | null) => Promise<void>;
     fetchReviewsForSelectedStudent: () => Promise<void>;
 
     openDrawer: (mode: 'add' | 'edit', review?: ReviewDocument) => void;
     closeDrawer: () => void;
-    submitReview: (reviewData: Omit<Review, 'teacherId' | 'studentId' | 'sectionId'>) => Promise<boolean>; // Returns true on success
-
+    // submitReview: (reviewData: Omit<ReviewDocument, '$id' | '$collectionId' | '$databaseId' | '$createdAt' | '$updatedAt' | '$permissions' | 'teacherId' | 'studentId' | 'sectionId'>) => Promise<boolean>;
+    submitReview: (reviewData: ReviewFormData) => Promise<boolean>; // Updated type
     openDeletePopover: (review: ReviewDocument) => void;
     closeDeletePopover: () => void;
-    confirmDeleteReview: () => Promise<boolean>; // Returns true on success
+    confirmDeleteReview: () => Promise<boolean>;
     
     clearErrors: () => void;
   };
@@ -97,141 +100,154 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
 
   actions: {
     checkAuthAndLoadTeacherInfo: async () => {
-      set({ isInitializing: true, error: null });
-      try {
-        const userEmail = await getCurrentUserEmail();
-        if (!userEmail) {
-          set({ isClassTeacher: false, isInitializing: false, error: "Could not get current user email." });
-          return;
+        set({ isInitializing: true, error: null, submitReviewError: null });
+        try {
+          // const userEmail = await getCurrentUserEmail(); // Using classTeacherInfo.email instead after fetching teacher
+          const appwriteUser = await account.get(); // Get current Appwrite user
+          
+          // Find teacher by email (current Appwrite user's email)
+          const teacherResponse = await databases.listDocuments<TeacherDocument>(
+            APPWRITE_DATABASE_ID,
+            TEACHERS_COLLECTION_ID,
+            [Query.equal('email', appwriteUser.email), Query.limit(1)]
+          );
+  
+          if (teacherResponse.documents.length === 0) {
+            set({ isClassTeacher: false, isInitializing: false, error: "Access Denied: You are not registered as a teacher." });
+            return;
+          }
+          const teacher = teacherResponse.documents[0];
+  
+          const sectionsResponse = await databases.listDocuments<SectionDocument>(
+            APPWRITE_DATABASE_ID,
+            SECTIONS_COLLECTION_ID,
+            [Query.equal('class_teacher', teacher.id)] 
+          );
+  
+          if (sectionsResponse.documents.length === 0) {
+            set({ isClassTeacher: false, isInitializing: false, error: "Access Denied: You are not assigned as a class teacher to any section." });
+            return;
+          }
+          
+          const managedSectionsData = sectionsResponse.documents.map(sec => ({
+              id: sec.$id,
+              name: sec.name,
+              className: sec.class,
+              facultyId: sec.facultyId, 
+          }));
+  
+          const uniqueFacultyCustomIds = [...new Set(managedSectionsData.map(sec => sec.facultyId).filter(Boolean))];
+          let managedFacultiesData: Array<{ id: string; name: string }> = [];
+  
+          if (uniqueFacultyCustomIds.length > 0) {
+              const facultyDocsPromises = uniqueFacultyCustomIds.map(customFid => 
+                  databases.listDocuments<FacultyDocument>(
+                      APPWRITE_DATABASE_ID, 
+                      FACULTIES_COLLECTION_ID, 
+                      [Query.equal('id', customFid), Query.limit(1)]
+                  )
+              );
+              const facultyResults = await Promise.all(facultyDocsPromises);
+              managedFacultiesData = facultyResults.flatMap(res => 
+                  res.documents.length > 0 ? [{ id: res.documents[0].id, name: res.documents[0].name }] : []
+              ).filter(f => f.id && f.name);
+          }
+          
+          set({
+            isClassTeacher: true,
+            classTeacherInfo: {
+              appwriteUserId: appwriteUser.$id,
+              teacherCustomId: teacher.id,
+              name: teacher.name,
+              email: teacher.email, // Storing teacher's email for notification sender
+              managedSections: managedSectionsData,
+              managedFaculties: managedFacultiesData,
+            },
+            isInitializing: false,
+          });
+        } catch (e: any) {
+          console.error("Auth check error:", e);
+          set({ isClassTeacher: false, isInitializing: false, error: e.message || "An error occurred during authentication." });
         }
-
-        const appwriteUser = await account.get(); // To get Appwrite User $id
-
-        // 1. Find teacher by email
-        const teacherResponse = await databases.listDocuments<TeacherDocument>(
-          APPWRITE_DATABASE_ID,
-          TEACHERS_COLLECTION_ID, // Ensure this ID is correct and available
-          [Query.equal('email', userEmail), Query.limit(1)]
-        );
-
-        if (teacherResponse.documents.length === 0) {
-          set({ isClassTeacher: false, isInitializing: false, error: "Access Denied: You are not registered as a teacher." });
-          return;
-        }
-        const teacher = teacherResponse.documents[0];
-
-        // 2. Find sections where this teacher is the class_teacher
-        //    `class_teacher` stores the custom `id` of the teacher
-        const sectionsResponse = await databases.listDocuments<SectionDocument>(
-          APPWRITE_DATABASE_ID,
-          SECTIONS_COLLECTION_ID,
-          [Query.equal('class_teacher', teacher.id)] // teacher.id is the custom id
-        );
-
-        if (sectionsResponse.documents.length === 0) {
-          set({ isClassTeacher: false, isInitializing: false, error: "Access Denied: You are not assigned as a class teacher to any section." });
-          return;
-        }
-        
-        const managedSections = sectionsResponse.documents.map(sec => ({
-            id: sec.$id, // section document $id
-            name: sec.name,
-            className: sec.class,
-        }));
-
-        set({
-          isClassTeacher: true,
-          classTeacherInfo: {
-            appwriteUserId: appwriteUser.$id,
-            teacherCustomId: teacher.id,
-            name: teacher.name,
-            email: teacher.email,
-            managedSections: managedSections,
-          },
-          isInitializing: false,
-        });
-      } catch (e: any) {
-        console.error("Auth check error:", e);
-        set({ isClassTeacher: false, isInitializing: false, error: e.message || "An error occurred during authentication." });
-      }
-    },
+      },
 
     setStudentSearchTerm: (term) => set({ studentSearchTerm: term }),
 
     searchStudents: async () => {
       const { classTeacherInfo, studentSearchTerm } = get();
+      set({ error: null }); 
+      
       if (!classTeacherInfo || classTeacherInfo.managedSections.length === 0) {
-        set({ searchedStudents: [], error: "Not authorized or no sections managed." });
+        set({ searchedStudents: [], isLoadingStudents: false, error: "Not authorized or no sections managed." });
         return;
       }
-      if (!studentSearchTerm.trim()) {
-        set({ searchedStudents: [] });
+      
+      const trimmedSearchTerm = studentSearchTerm.trim();
+      if (!trimmedSearchTerm) {
+        set({ searchedStudents: [], selectedStudent: null, isLoadingStudents: false });
         return;
       }
 
-      set({ isLoadingStudents: true, error: null });
+      set({ isLoadingStudents: true });
       try {
-        const sectionIds = classTeacherInfo.managedSections.map(s => s.id);
-        const queries: string[] = [
-            Query.equal('section', sectionIds), // Filter by sections class teacher manages
+        const managedClassNames = [...new Set(classTeacherInfo.managedSections.map(s => s.className))];
+        const managedFacultyIds = [...new Set(classTeacherInfo.managedSections.map(s => s.facultyId).filter(Boolean))]; // Filter out undefined/null facultyIds
+        const managedSectionNames = classTeacherInfo.managedSections.map(s => s.name);
+
+        const studentQueries: string[] = [
+            Query.equal('class', managedClassNames),
+            // Only add facultyId query if there are managed faculty IDs
+            ...(managedFacultyIds.length > 0 ? [Query.equal('facultyId', managedFacultyIds)] : []),
+            Query.search('name', trimmedSearchTerm)
         ];
-        // Add search query for student name - Appwrite search works on indexed string attributes
-        // Assuming 'name' is indexed for search or using Query.search()
-        // For more robust search, consider creating a dedicated search index or using functions.
-        // Simple name search:
-        if (studentSearchTerm.length > 0) {
-             // Using `Query.search("name", studentSearchTerm)` might be better if 'name' is full-text indexed
-             // For startsWith or contains, ensure 'name' is appropriately indexed for such queries.
-             // Let's try a general search on 'name' which is common.
-            queries.push(Query.search('name', studentSearchTerm));
-        }
 
-
-        const studentDocs = await databases.listDocuments<StudentDocument>(
+        const studentDocsResponse = await databases.listDocuments<StudentDocument>(
           APPWRITE_DATABASE_ID,
           STUDENTS_COLLECTION_ID,
-          queries
+          studentQueries
         );
         
-        // Enhance student data with faculty and section names
+        const filteredStudentsBySectionName = studentDocsResponse.documents.filter(student => {
+            return managedSectionNames.includes(student.section); // student.section is name
+        });
+        
         const studentsWithDetails: StudentWithDetails[] = await Promise.all(
-          studentDocs.documents.map(async (student) => {
+          filteredStudentsBySectionName.map(async (student) => {
             let facultyName = 'N/A';
-            let sectionName = 'N/A';
-
             if (student.facultyId) {
               try {
-                const facultyDoc = await databases.getDocument<FacultyDocument>(
+                const facultyResponse = await databases.listDocuments<FacultyDocument>(
                   APPWRITE_DATABASE_ID,
                   FACULTIES_COLLECTION_ID,
-                  student.facultyId
+                  [Query.equal('id', student.facultyId), Query.limit(1)]
                 );
-                facultyName = facultyDoc.name;
-              } catch (err) { console.warn(`Failed to fetch faculty ${student.facultyId}`, err); }
+                if (facultyResponse.documents.length > 0) {
+                  facultyName = facultyResponse.documents[0].name;
+                } else {
+                  facultyName = `ID ${student.facultyId} (Not Found)`;
+                }
+              } catch (err) { 
+                facultyName = 'Error fetching faculty';
+              }
             }
-            if (student.section) { // student.section is section $id
-              try {
-                const sectionDoc = await databases.getDocument<SectionDocument>(
-                  APPWRITE_DATABASE_ID,
-                  SECTIONS_COLLECTION_ID,
-                  student.section
-                );
-                sectionName = sectionDoc.name;
-              } catch (err) { console.warn(`Failed to fetch section ${student.section}`, err); }
-            }
-            return { ...student, facultyName, sectionName };
+            return { ...student, facultyName, sectionName: student.section };
           })
         );
-
+        
         set({ searchedStudents: studentsWithDetails, isLoadingStudents: false });
+
       } catch (e: any) {
-        console.error("Student search error:", e);
-        set({ searchedStudents: [], isLoadingStudents: false, error: e.message || "Failed to search students." });
+        console.error("Student search error in store:", e);
+        set({ 
+            searchedStudents: [], 
+            isLoadingStudents: false, 
+            error: e.message || "Failed to search students. Please check console for details." 
+        });
       }
     },
 
     selectStudent: async (student) => {
-      set({ selectedStudent: student, reviews: [], isLoadingReviews: false });
+      set({ selectedStudent: student, reviews: [], isLoadingReviews: false, error: null });
       if (student) {
         await get().actions.fetchReviewsForSelectedStudent();
       }
@@ -245,11 +261,10 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
       try {
         const reviewDocs = await databases.listDocuments<ReviewDocument>(
           APPWRITE_DATABASE_ID,
-          REVIEWS_COLLECTION_ID, // Ensure this is defined
+          REVIEWS_COLLECTION_ID,
           [
             Query.equal('studentId', selectedStudent.$id),
-            // Query.equal('teacherId', classTeacherInfo.teacherCustomId), // Optionally filter by current teacher if needed
-            Query.orderDesc('reviewDate') // Show newest first
+            Query.orderDesc('reviewDate')
           ]
         );
         set({ reviews: reviewDocs.documents, isLoadingReviews: false });
@@ -260,55 +275,104 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
     },
 
     openDrawer: (mode, review) => {
-      set({ isDrawerOpen: true, drawerMode: mode, reviewToEdit: mode === 'edit' ? review : null, submitReviewError: null });
+      set({ 
+        isDrawerOpen: true, 
+        drawerMode: mode, 
+        reviewToEdit: mode === 'edit' ? review : null, 
+        submitReviewError: null
+      });
     },
     closeDrawer: () => {
-      set({ isDrawerOpen: false, reviewToEdit: null });
+      set({ isDrawerOpen: false, reviewToEdit: null, submitReviewError: null });
     },
 
-    submitReview: async (reviewData) => {
+    submitReview: async (reviewDataFromForm) => { // reviewDataFromForm now contains AD date
       const { classTeacherInfo, selectedStudent, drawerMode, reviewToEdit } = get();
       if (!classTeacherInfo || !selectedStudent) {
-        set({ submitReviewError: "No teacher or student selected." });
+        set({ submitReviewError: "Critical error: Teacher or student context lost." });
         return false;
       }
 
       set({ isSubmittingReview: true, submitReviewError: null });
 
-      const payload: Review = {
-        ...reviewData,
+      let studentSectionDocId: string | undefined = undefined;
+      // ... (logic to find studentSectionDocId remains the same)
+      if (selectedStudent.section && selectedStudent.class && selectedStudent.facultyId) {
+          const targetSection = classTeacherInfo.managedSections.find(
+              ms => ms.name === selectedStudent.section &&
+                    ms.className === selectedStudent.class &&
+                    ms.facultyId === selectedStudent.facultyId
+          );
+          if (targetSection) {
+              studentSectionDocId = targetSection.id;
+          }
+      }
+      
+      if (!studentSectionDocId) {
+        console.error(
+            "SubmitReview Error: Could not determine the Section Document ID for the student's section.",
+            "Student's details:", { name: selectedStudent.section, class: selectedStudent.class, facultyId: selectedStudent.facultyId }
+        );
+        set({ 
+            isSubmittingReview: false, 
+            submitReviewError: "Could not link review to a specific section document. Student's section details might be ambiguous or not managed by you." 
+        });
+        return false;
+      }
+
+
+      // reviewDataFromForm has: type, description, rating, reviewDate (AD format)
+      // academicYear is removed
+      const dbReviewPayload = {
+        ...reviewDataFromForm,
         studentId: selectedStudent.$id,
-        teacherId: classTeacherInfo.teacherCustomId, // Custom teacher ID
-        sectionId: selectedStudent.section, // student.section is section $id
+        teacherId: classTeacherInfo.teacherCustomId,
+        sectionId: studentSectionDocId,
       };
 
       try {
+        let createdOrUpdatedReviewDocument: ReviewDocument | null = null;
+
         if (drawerMode === 'add') {
-          await databases.createDocument(
+          createdOrUpdatedReviewDocument = await databases.createDocument<ReviewDocument>(
             APPWRITE_DATABASE_ID,
             REVIEWS_COLLECTION_ID,
-            ID.unique(),
-            payload,
-            // Permissions: Creator gets full control. Others in teacher's team/role might get read.
-            // For simplicity, let's rely on collection-level read for other authorized teachers,
-            // and document-level for creator.
-            // [
-            //   Permission.read(Role.user(classTeacherInfo.appwriteUserId)),
-            //   Permission.update(Role.user(classTeacherInfo.appwriteUserId)),
-            //   Permission.delete(Role.user(classTeacherInfo.appwriteUserId)),
-            //   // Permission.read(Role.team('class-teachers-of-' + selectedStudent.section)) // Example more complex permission
-            // ]
+            AppwriteID.unique(),
+            dbReviewPayload
           );
         } else if (drawerMode === 'edit' && reviewToEdit) {
-          await databases.updateDocument(
+          createdOrUpdatedReviewDocument = await databases.updateDocument<ReviewDocument>(
             APPWRITE_DATABASE_ID,
             REVIEWS_COLLECTION_ID,
             reviewToEdit.$id,
-            payload
+            dbReviewPayload 
           );
         }
-        set({ isSubmittingReview: false, isDrawerOpen: false });
-        await get().actions.fetchReviewsForSelectedStudent(); // Refresh list
+        
+        set({ isSubmittingReview: false, isDrawerOpen: false, reviewToEdit: null });
+        await get().actions.fetchReviewsForSelectedStudent();
+
+        if (drawerMode === 'add' && createdOrUpdatedReviewDocument) {
+          try {
+            const senderEmail = classTeacherInfo.email; 
+            if (!senderEmail) {
+                console.warn("Notification not sent: Sender email (teacher's email) could not be determined from classTeacherInfo.");
+            } else {
+                const notificationPayload: NotificationData = {
+                    title: `New Review Added for ${selectedStudent.name}`,
+                    // Use reviewDataFromForm.reviewDate which is AD
+                    msg: `A new performance review for "${reviewDataFromForm.type}" has been added for ${selectedStudent.name} by teacher ${classTeacherInfo.name}. Review Date: ${new Date(reviewDataFromForm.reviewDate).toLocaleDateString()}.`,
+                    to: [`id:${selectedStudent.$id}`], 
+                    valid: getTomorrowDateString(),
+                    sender: senderEmail,
+                };
+                await createNotificationEntry(notificationPayload);
+                console.log("Notification scheduled successfully for new review.");
+            }
+          } catch (notificationError) {
+            console.error("Failed to send notification for new review:", notificationError);
+          }
+        }
         return true;
       } catch (e: any) {
         console.error("Submit review error:", e);
@@ -335,11 +399,14 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
           reviewToDelete.$id
         );
         set({ isDeletingReview: false, isDeletePopoverOpen: false, reviewToDelete: null });
-        await get().actions.fetchReviewsForSelectedStudent(); // Refresh list
+        await get().actions.fetchReviewsForSelectedStudent();
         return true;
       } catch (e: any) {
         console.error("Delete review error:", e);
-        set({ isDeletingReview: false, error: e.message || "Failed to delete review." });
+        set({ 
+            isDeletingReview: false, 
+            error: e.message || "Failed to delete review." 
+        });
         return false;
       }
     },

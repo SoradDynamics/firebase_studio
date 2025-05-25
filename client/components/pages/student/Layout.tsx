@@ -51,6 +51,8 @@ import StudentNotesPage from "./components/Notes/StudentNotesPage";
 import StudentGalleryPage from "./components/Gallery/StudentGalleryPage";
 import StudentLessonPlanCard from "./components/LessonPlan/StudentLessonPlanCard";
 import StudentLessonPlansPage from "./components/LessonPlan/StudentLessonPlansPage";
+import StudentMyReviewsPage from "./components/Review/StudentMyReviewsPage";
+import StudentAssignmentsPage from "./components/Assignment/StudentAssignmentsPage";
 
 export default function Layout() {
   const [sidebarState, setSidebarState] = useState<number>(() => {
@@ -77,6 +79,9 @@ export default function Layout() {
     {name: "Notes", icon: UsersIcon, component: StudentNotesPage}, // Main Attendance component
     {name: "Gallery", icon: UsersIcon, component: StudentGalleryPage}, // Main Attendance component
     {name: "Lessons", icon: UsersIcon, component: StudentLessonPlansPage}, // Main Attendance component
+    {name: "Review", icon: UsersIcon, component: StudentMyReviewsPage}, // Main Attendance component
+    {name: "Assignment", icon: UsersIcon, component: StudentAssignmentsPage}, // Main Attendance component
+
 
 
 

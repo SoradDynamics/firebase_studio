@@ -21,6 +21,7 @@ import AssignClassTeacherPage from "../admin/components/ClassTeacher/AssignClass
 import TeacherAssignmentsPage from "./components/Assignment/TeacherAssignmentsPage";
 import NotesPage from "../common/Notes/NotesPage";
 import LessonPlanPage from "./components/LessonPlan/LessonPlanPage";
+import StudentReviewPage from "../common/Review/StudentReviewPage";
 
 
 // Define dummy components
@@ -53,6 +54,8 @@ export default function Layout() {
     { name: "Assignment", icon: BellIcon, component: TeacherAssignmentsPage }, // Notification component
     { name: "Notes", icon: BellIcon, component: NotesPage }, // Notification component
     { name: "Lesson Plan", icon: BellIcon, component: LessonPlanPage }, // Notification component
+    { name: "Std Review", icon: BellIcon, component: StudentReviewPage }, // Notification component
+
 
 
 

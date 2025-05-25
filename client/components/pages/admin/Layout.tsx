@@ -33,6 +33,8 @@ import AssignClassTeacherPage from "./components/ClassTeacher/AssignClassTeacher
 import RoutineManagementPage from "./components/Routine/RoutineManagementPage";
 import AdminLessonPlansPage from "./components/LessonPlan/AdminLessonPlansPage";
 import GalleryPage from "./components/Gallery/GalleryPage";
+import AdminReviewManagementPage from "./components/Review/AdminReviewManagementPage";
+import TeacherMarksEntryPage from "../common/Result/components/TeacherMarksEntryPage";
 
 // Define dummy components
 const DashboardComponent = () => <div><h2>Dashboard Component</h2><p>This is the  content.</p></div>;
@@ -73,6 +75,8 @@ export default function Layout() {
 
         { name: "Attendance", icon: AdjustmentsHorizontalIcon, component: Attendance },
         { name: "Leave", icon: AdjustmentsHorizontalIcon, component: ApproveLeavePage },
+        { name: "Review", icon: AdjustmentsHorizontalIcon, component: AdminReviewManagementPage },
+
 
       ],
     },
@@ -97,6 +101,8 @@ export default function Layout() {
     },
     { name: "Routine", icon: DocumentTextIcon, component: RoutineManagementPage },
     { name: "Lesson", icon: DocumentTextIcon, component: AdminLessonPlansPage },
+    { name: "Result", icon: DocumentTextIcon, component: TeacherMarksEntryPage },
+
 
     {
       name: "Configure",

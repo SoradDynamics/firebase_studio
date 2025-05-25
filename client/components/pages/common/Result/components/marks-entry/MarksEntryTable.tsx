@@ -83,13 +83,14 @@ const MarksEntryTable: React.FC<MarksEntryTableProps> = ({
                   </td>
                 )}
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <Checkbox
-                    isSelected={student.isAbsentInput}
-                    onValueChange={(val) => onAbsenceChange(student.$id, val)}
+                    <input
+                    type="checkbox"
+                    checked={student.isAbsentInput}
+                    onChange={(e) => onAbsenceChange(student.$id, e.target.checked)}
                     disabled={isSaving}
-                  >
-                    Mark Absent
-                  </Checkbox>
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label className="ml-2 text-sm text-gray-600">Mark Absent</label>
                 </td>
               </tr>
             ))}

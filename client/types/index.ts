@@ -74,3 +74,28 @@ export interface Faculty {
 }
 
 
+export interface StudentProfile extends Models.Document {
+  userId: string; // Links to Appwrite User $id
+  name: string;
+  email: string;
+  facultyId: string;
+  class: string; // e.g., "XI", "XII"
+  sectionId: string;
+  // any other student-specific fields
+}
+
+
+export interface Student extends Models.Document {
+  name: string;
+  class: string;
+  facultyId: string;
+  section: string; // Section Name
+  stdEmail?: string; // Optional
+  parentId: string;
+}
+
+export interface Parent extends Models.Document {
+  name: string;
+  email: string;
+  // Array of student document IDs (though your SelectStudentComponent fetches students via parentId on student
+}

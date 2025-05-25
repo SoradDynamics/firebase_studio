@@ -61,9 +61,10 @@ export interface StudentWithDetails extends StudentDocument {
 
 // For storing class teacher's authenticated info
 export interface ClassTeacherInfo {
-  appwriteUserId: string; // Appwrite internal user ID ($id from account.get())
-  teacherCustomId: string; // The 'id' field from coll-teacher
+  appwriteUserId: string;
+  teacherCustomId: string;
   name: string;
   email: string;
-  managedSections: Array<{ id: string; name: string; className: string }>; // $id and name of sections
+  managedSections: Array<{ id: string; name: string; className: string; facultyId: string }>; // Added facultyId
+  managedFaculties: Array<{ id: string; name: string }>; // To store names of managed faculties
 }
