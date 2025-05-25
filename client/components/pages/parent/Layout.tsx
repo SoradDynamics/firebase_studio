@@ -17,6 +17,7 @@ import ParentAttendancePage from "./components/Attendance/ParentAttendancePage";
 import ViewStudentRoutinePage from "./components/Routine/ViewStudentRoutinePage";
 import ParentNotesPage from "./components/Notes/ParentNotesPage";
 import ParentGalleryPage from "./components/Gallery/ParentGalleryPage";
+import ParentLessonPlansPage from "./components/Lesson/ParentLessonPlansPage";
 
 
 // Define dummy components (as before)
@@ -63,6 +64,8 @@ export default function Layout() {
     { name: "Exam", icon: HomeIcon, component:ParentExamViewPage },
     { name: "Notes", icon: HomeIcon, component:ParentNotesPage },
     { name: "Gallery", icon: HomeIcon, component:ParentGalleryPage },
+    { name: "Lesson", icon: HomeIcon, component:ParentLessonPlansPage },
+
 
 
     { name: "Attendance", icon: HomeIcon, component:ParentAttendancePage },

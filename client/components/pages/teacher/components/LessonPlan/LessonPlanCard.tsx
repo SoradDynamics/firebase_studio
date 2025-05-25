@@ -1,8 +1,10 @@
+
 import React from 'react';
-import { Card, CardHeader, CardBody, CardFooter, Chip, Button } from '@heroui/react';
+import { Card, CardHeader, CardBody, CardFooter, Chip, Button, Badge } from '@heroui/react';
 import ActionButton from '../../../../common/ActionButton'; // Assuming path
-import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, TrashIcon, EyeIcon,  EyeIcon as ViewDetailsIcon, EyeIcon as PublicIcon, EyeSlashIcon as PrivateIcon  } from '@heroicons/react/24/outline';
 import { LessonPlan, useLessonPlanStore } from '~/store/lessonPlanStore';
+
 
 interface LessonPlanCardProps {
   plan: LessonPlan;
@@ -37,9 +39,20 @@ const LessonPlanCard: React.FC<LessonPlanCardProps> = ({ plan, onEdit, onDelete,
             </p>
             <p className="text-xs text-gray-500">Subject: {plan.subject}</p>
         </div>
-        <Chip color={statusColors[plan.status] || "default"} size="sm" variant="flat">
-            {plan.status.replace('-', ' ')}
-        </Chip>
+        <div className="flex flex-col items-end space-y-1">
+            <Chip color={statusColors[plan.status] || "default"} size="sm" variant="flat">
+                {plan.status.replace('-', ' ')}
+            </Chip>
+            {plan.isPublic ? (
+                <Badge color="success" variant="flat" size="md" className="mt-1">
+                    <PublicIcon className="h-3 w-3 mr-0.5 inline-block" /> Public
+                </Badge>
+            ) : (
+                <Badge color="default" variant="flat" size="md" className="mt-1">
+                    <PrivateIcon className="h-3 w-3 mr-0.5 inline-block" /> Private
+                </Badge>
+            )}
+        </div>
       </CardHeader>
       <CardBody className="py-2">
         <p className="text-sm text-gray-600 line-clamp-2 mb-1">{plan.description}</p>
@@ -47,7 +60,7 @@ const LessonPlanCard: React.FC<LessonPlanCardProps> = ({ plan, onEdit, onDelete,
         <p className="text-xs text-gray-500">Est. Periods: {plan.estimatedPeriods}</p>
       </CardBody>
       <CardFooter className="flex justify-end gap-2 pt-2">
-        <ActionButton icon={<EyeIcon className="h-4 w-4" />} onClick={() => onViewDetails(plan)} color="blue" />
+        <ActionButton icon={<ViewDetailsIcon className="h-4 w-4" />} onClick={() => onViewDetails(plan)} color="blue" />
         <ActionButton icon={<PencilIcon className="h-4 w-4" />} onClick={() => onEdit(plan)} color="orange" />
         <ActionButton icon={<TrashIcon className="h-4 w-4" />} onClick={() => onDelete(plan.$id)} color="red" />
       </CardFooter>

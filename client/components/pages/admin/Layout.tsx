@@ -28,10 +28,11 @@ import Notification from "./components/Notification";
 import FeeConfigurationPage from "./components/FeeConfigurationPage";
 import TeacherPage from "./components/Teacher";
 import ExamManagementPage from "./components/Exam";
-import GalleryPage from "./components/Gallery/GalleryPage";
 import ApproveLeavePage from "./components/LeaveApprove/ApproveLeavePage";
 import AssignClassTeacherPage from "./components/ClassTeacher/AssignClassTeacherPage";
 import RoutineManagementPage from "./components/Routine/RoutineManagementPage";
+import AdminLessonPlansPage from "./components/LessonPlan/AdminLessonPlansPage";
+import GalleryPage from "./components/Gallery/GalleryPage";
 
 // Define dummy components
 const DashboardComponent = () => <div><h2>Dashboard Component</h2><p>This is the  content.</p></div>;
@@ -95,6 +96,8 @@ export default function Layout() {
       ]
     },
     { name: "Routine", icon: DocumentTextIcon, component: RoutineManagementPage },
+    { name: "Lesson", icon: DocumentTextIcon, component: AdminLessonPlansPage },
+
     {
       name: "Configure",
       icon: CogIcon,
