@@ -19,6 +19,8 @@ import ApproveLeavePage from "./components/LeaveApprove/ApproveLeavePage";
 import TeacherMarksEntryPage from "../common/Result/components/TeacherMarksEntryPage";
 import AssignClassTeacherPage from "../admin/components/ClassTeacher/AssignClassTeacherPage";
 import TeacherAssignmentsPage from "./components/Assignment/TeacherAssignmentsPage";
+import NotesPage from "../common/Notes/NotesPage";
+import LessonPlanPage from "./components/LessonPlan/LessonPlanPage";
 
 
 // Define dummy components
@@ -49,6 +51,11 @@ export default function Layout() {
     { name: "Dashboard", icon: HomeIcon, component: DashboardComponent },
     { name: "Result", icon: UserCircleIcon, component: TeacherMarksEntryPage }, // Profile component
     { name: "Assignment", icon: BellIcon, component: TeacherAssignmentsPage }, // Notification component
+    { name: "Notes", icon: BellIcon, component: NotesPage }, // Notification component
+    { name: "Lesson Plan", icon: BellIcon, component: LessonPlanPage }, // Notification component
+
+
+
     {
       name: "Students",
       icon: UsersIcon,
@@ -104,7 +111,7 @@ export default function Layout() {
 
   return (
     <TeacherProvider>
-    <div className="flex h-screen bg-gray-100/40">
+    <div className="flex max-h-screen min-h-screen bg-gray-100/40">
       <Sidebar
         sidebarState={sidebarState}
         toggleSidebar={toggleSidebar} // Pass toggleSidebar function

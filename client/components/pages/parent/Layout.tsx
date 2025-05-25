@@ -15,6 +15,7 @@ import { icon } from "leaflet";
 import ParentExamViewPage from "./components/Exam";
 import ParentAttendancePage from "./components/Attendance/ParentAttendancePage";
 import ViewStudentRoutinePage from "./components/Routine/ViewStudentRoutinePage";
+import ParentNotesPage from "./components/Notes/ParentNotesPage";
 
 
 // Define dummy components (as before)
@@ -59,6 +60,8 @@ export default function Layout() {
     { name: "Dashboard", icon: HomeIcon, component: ParentDashboardPage },
     { name: "Student", icon: HomeIcon, component: StudentsComponent },
     { name: "Exam", icon: HomeIcon, component:ParentExamViewPage },
+    { name: "Notes", icon: HomeIcon, component:ParentNotesPage },
+
     { name: "Attendance", icon: HomeIcon, component:ParentAttendancePage },
 
     { name: "Routine", icon: HomeIcon, component:ViewStudentRoutinePage },
@@ -92,7 +95,7 @@ export default function Layout() {
 
   return (
      <StudentDataProvider> 
-      <div className="flex h-screen bg-gray-100/40">
+      <div className="flex min-h-screen max-h-screen bg-gray-100/40">
         <Sidebar
           sidebarState={sidebarState}
           toggleSidebar={toggleSidebar}
