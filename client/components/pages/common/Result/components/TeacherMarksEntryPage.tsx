@@ -11,16 +11,17 @@ import {
 } from '~/utils/appwrite';
 import { useAuthStore } from '~/utils/authStore';
 import { createNotificationEntry, getTomorrowDateString, NotificationData } from '~/utils/notification';
-import Popover from '../../../../common/Popover'; // Ensure path is correct
+import Popover from '../../../../common/Popover';
+import ActionButton from '../../../../common/ActionButton'; // <<< IMPORT ActionButton
 
 import { Exam, ExamDocument, StudentDocument, MarkEntryDocument, StudentForMarksTable, SectionDocument, SubjectDetail, FacultyDocument } from '../types/appwrite.types';
 import { parseSubjectDetails } from '../utils/helpers';
 import ExamCard from '../components/marks-entry/ExamCard';
 import MarksEntryFilters from '../components/marks-entry/MarksEntryFilters';
 import MarksEntryTable from '../components/marks-entry/MarksEntryTable';
-import SearchBar from '../../../common/SearchBar'; // Ensure path is correct
+import SearchBar from '../../../common/SearchBar';
 import { Spinner, Button, Chip } from '@heroui/react';
-import { ArrowLeftIcon, CheckCircleIcon, InformationCircleIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, CheckCircleIcon, InformationCircleIcon, ShieldCheckIcon, ArrowPathIcon } from '@heroicons/react/24/outline'; // <<< IMPORT ArrowPathIcon for reload
 
 const MARKS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_MARKS_COLLECTION_ID || "YOUR_DEFAULT_MARKS_COLLECTION_ID_IF_ENV_FAILS";
 const FACULTY_COLLECTION_ID = import.meta.env.VITE_APPWRITE_FACULTY_COLLECTION_ID || "YOUR_FACULTY_COLLECTION_ID";
@@ -33,15 +34,16 @@ const TeacherMarksEntryPage: React.FC = () => {
   const [examEntryPercentages, setExamEntryPercentages] = useState<Record<string, number | null>>({});
   const [facultyMap, setFacultyMap] = useState<Record<string, string>>({});
   const [isLoadingExams, setIsLoadingExams] = useState(true);
+  const [isReloadingExams, setIsReloadingExams] = useState(false); // <<< State for reload button loading
   const [searchTerm, setSearchTerm] = useState('');
 
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [currentFilters, setCurrentFilters] = useState<{ classId: string | null; sectionId: string | null; subjectName: string | null }>({
     classId: null,
-    sectionId: null, // This stores the section ID from coll-section
+    sectionId: null,
     subjectName: null,
   });
-  const [selectedSectionName, setSelectedSectionName] = useState<string | null>(null); // This will store the fetched section name
+  const [selectedSectionName, setSelectedSectionName] = useState<string | null>(null);
 
   const [studentsForTable, setStudentsForTable] = useState<StudentForMarksTable[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
@@ -83,44 +85,65 @@ const TeacherMarksEntryPage: React.FC = () => {
     }
   }, [showSnackbar]);
 
-  useEffect(() => {
-    const fetchExamsAndFaculties = async () => {
+  // Abstracted function to fetch exams and faculties
+  const loadExamsData = useCallback(async (isReload = false) => {
+    if(isReload) {
+      setIsReloadingExams(true);
+    } else {
       setIsLoadingExams(true);
-      setFacultyMap({});
-      try {
-        const response = await databases.listDocuments<ExamDocument>(
-          APPWRITE_DATABASE_ID,
-          EXAMS_COLLECTION_ID,
-          [Query.orderDesc('$createdAt'), Query.limit(100)]
-        );
-        const parsedExams = response.documents.map(doc => ({
-          ...doc,
-          subjectDetails: parseSubjectDetails(doc.subjectDetails_json),
-        }));
-        setAllExams(parsedExams);
-        setFilteredExams(parsedExams);
+    }
+    setFacultyMap({}); // Reset faculty map on each load/reload
+    setExamEntryPercentages({}); // Reset percentages on reload
+    try {
+      const response = await databases.listDocuments<ExamDocument>(
+        APPWRITE_DATABASE_ID,
+        EXAMS_COLLECTION_ID,
+        [Query.orderDesc('$createdAt'), Query.limit(100)]
+      );
+      const parsedExams = response.documents.map(doc => ({
+        ...doc,
+        subjectDetails: parseSubjectDetails(doc.subjectDetails_json),
+      }));
+      setAllExams(parsedExams);
+      setFilteredExams(parsedExams); // Update filtered exams as well
 
-        const allFacultyIds = parsedExams.flatMap(exam => exam.faculty).filter(id => id);
-        if (allFacultyIds.length > 0) {
-            const names = await fetchFacultyNames(allFacultyIds);
-            setFacultyMap(names);
-        }
-      } catch (error) {
-        console.error("Failed to fetch exams:", error);
-        showSnackbar("Failed to load exams.", "error");
-      } finally {
+      const allFacultyIds = parsedExams.flatMap(exam => exam.faculty).filter(id => id);
+      if (allFacultyIds.length > 0) {
+          const names = await fetchFacultyNames(allFacultyIds);
+          setFacultyMap(names);
+      }
+      if (isReload) {
+        showSnackbar("Exam list reloaded.", "info");
+      }
+    } catch (error) {
+      console.error("Failed to fetch exams:", error);
+      showSnackbar("Failed to load exams.", "error");
+    } finally {
+      if(isReload) {
+        setIsReloadingExams(false);
+      } else {
         setIsLoadingExams(false);
       }
-    };
-    if (initialAuthAttempted) {
-        fetchExamsAndFaculties();
     }
-  }, [fetchFacultyNames, showSnackbar, initialAuthAttempted]);
+  }, [fetchFacultyNames, showSnackbar]); // Dependencies for loadExamsData
 
-  // Effect to get selected section NAME based on selected section ID
+
+  useEffect(() => {
+    if (initialAuthAttempted) {
+        loadExamsData(); // Initial load
+    }
+  }, [initialAuthAttempted, loadExamsData]);
+
+  const handleReloadExams = () => {
+    if (!isReloadingExams) { // Prevent multiple rapid reloads
+      loadExamsData(true); // Reload
+    }
+  };
+
+
   useEffect(() => {
     if (currentFilters.sectionId && selectedExam && currentFilters.classId) {
-      setSelectedSectionName(null); // Reset while fetching
+      setSelectedSectionName(null);
       const findSectionName = async () => {
         try {
           const sectionDoc = await databases.getDocument<SectionDocument>(
@@ -131,35 +154,47 @@ const TeacherMarksEntryPage: React.FC = () => {
           setSelectedSectionName(sectionDoc.name);
         } catch (error) {
           console.error("Could not fetch selected section details to get name:", error);
-          setSelectedSectionName(null); // Keep it null on error
+          setSelectedSectionName(null);
           showSnackbar("Error: Could not retrieve section details.", "error");
         }
       };
       findSectionName();
     } else {
-      setSelectedSectionName(null); // Clear if sectionId or other dependencies are missing
+      setSelectedSectionName(null);
     }
   }, [currentFilters.sectionId, selectedExam, currentFilters.classId, showSnackbar]);
 
   useEffect(() => {
       const calculatePercentages = async () => {
-          // ... (percentage calculation logic - unchanged)
             if (!MARKS_COLLECTION_ID || MARKS_COLLECTION_ID === "YOUR_DEFAULT_MARKS_COLLECTION_ID_IF_ENV_FAILS") {
                 filteredExams.forEach(exam => {
                     setExamEntryPercentages(prev => ({ ...prev, [exam.$id]: -2 }));
                 });
                 return;
             }
-            for (const exam of filteredExams) {
-                if (examEntryPercentages[exam.$id] !== undefined && examEntryPercentages[exam.$id] !== null) continue;
-                 setExamEntryPercentages(prev => ({ ...prev, [exam.$id]: null }));
+            // Filter out exams for which percentage is already calculated or errored/NA, unless it's undefined (needs calculation)
+            const examsToCalculate = filteredExams.filter(exam => examEntryPercentages[exam.$id] === undefined || examEntryPercentages[exam.$id] === null);
+
+            if (examsToCalculate.length === 0) return;
+
+            // Set initial calculating state for those needing it
+            examsToCalculate.forEach(exam => {
+                if (examEntryPercentages[exam.$id] === undefined) { // Only set to null if not already set
+                     setExamEntryPercentages(prev => ({ ...prev, [exam.$id]: null }));
+                }
+            });
+
+
+            for (const exam of examsToCalculate) {
+                 // Double check, in case state updated mid-loop by another process (unlikely here)
+                if (examEntryPercentages[exam.$id] !== null && examEntryPercentages[exam.$id] !== undefined) continue;
 
                 try {
                     let totalEligibleStudents = 0;
                     if (exam.class.length > 0) {
                          const studentCountQueries: string[] = [Query.equal('class', exam.class)];
                           if (exam.section && exam.section.length > 0) {
-                            studentCountQueries.push(Query.equal('section', exam.section)); // This queries coll-student.section by name if exam.section stores names
+                            studentCountQueries.push(Query.equal('section', exam.section));
                           }
                          const studentCountResponse = await databases.listDocuments(
                              APPWRITE_DATABASE_ID, STUDENTS_COLLECTION_ID, [...studentCountQueries, Query.limit(1), Query.select(["$id"])]
@@ -191,7 +226,10 @@ const TeacherMarksEntryPage: React.FC = () => {
       if (filteredExams.length > 0 && MARKS_COLLECTION_ID && MARKS_COLLECTION_ID !== "YOUR_DEFAULT_MARKS_COLLECTION_ID_IF_ENV_FAILS") {
         calculatePercentages();
       }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Make this dependent on filteredExams so it recalculates if exams change.
+  // The internal checks prevent re-calculating already processed exams.
+  // Also, if examEntryPercentages is a dependency, it can cause infinite loops if not careful.
+  // So, let it run when filteredExams changes.
   }, [filteredExams]);
 
   useEffect(() => {
@@ -212,7 +250,7 @@ const TeacherMarksEntryPage: React.FC = () => {
     setSelectedExam(exam);
     setPublishIsGpa(exam.isGpa || false);
     setCurrentFilters({ classId: null, sectionId: null, subjectName: null });
-    setSelectedSectionName(null); // Reset section name
+    setSelectedSectionName(null);
     setStudentsForTable([]);
   }, []);
 
@@ -220,22 +258,17 @@ const TeacherMarksEntryPage: React.FC = () => {
       setSelectedExam(null);
   };
 
-  // Effect to fetch students and marks for the table
   useEffect(() => {
     const fetchStudentsAndMarks = async () => {
-      // GUARD: Ensure all necessary filters, including the fetched sectionName, are available
       if (!selectedExam || !currentFilters.classId || !currentFilters.sectionId || !selectedSectionName || !currentFilters.subjectName) {
         setStudentsForTable([]);
         return;
       }
       setIsLoadingStudents(true);
       try {
-        // CORRECTED QUERY: Use selectedSectionName for 'section' field
-        // as coll-student.section stores section name.
-        // currentFilters.classId stores class name, which is correct for coll-student.class.
         const studentQueries = [
-          Query.equal('class', currentFilters.classId),        // Class name matches coll-student.class
-          Query.equal('section', selectedSectionName),         // Section name matches coll-student.section
+          Query.equal('class', currentFilters.classId),
+          Query.equal('section', selectedSectionName),
           Query.limit(200)
         ];
 
@@ -247,7 +280,6 @@ const TeacherMarksEntryPage: React.FC = () => {
         const students = studentResponse.documents;
 
         if (students.length === 0) {
-          // selectedSectionName will be available here due to the guard condition above
           showSnackbar(`No students found for Class: ${currentFilters.classId}, Section: ${selectedSectionName}.`, "info");
           setStudentsForTable([]);
         } else {
@@ -288,21 +320,17 @@ const TeacherMarksEntryPage: React.FC = () => {
     if (MARKS_COLLECTION_ID && MARKS_COLLECTION_ID !== "YOUR_DEFAULT_MARKS_COLLECTION_ID_IF_ENV_FAILS") {
         fetchStudentsAndMarks();
     } else if (selectedExam && currentFilters.classId && currentFilters.sectionId && currentFilters.subjectName) {
-        // This condition might be hit if selectedSectionName is not yet ready
         if (!selectedSectionName && currentFilters.sectionId) {
-            // Waiting for section name to be fetched, do nothing here, spinner is handled by isLoadingStudents or parent
+          // Waiting
         } else {
             showSnackbar("Marks collection not configured. Cannot fetch or save marks.", "error");
             setIsLoadingStudents(false);
         }
     }
-  // DEPENDENCIES: Added selectedSectionName.
-  // This effect now runs when selectedSectionName changes (i.e., after it's fetched).
   }, [selectedExam, currentFilters.classId, currentFilters.sectionId, selectedSectionName, currentFilters.subjectName, showSnackbar]);
 
 
   const handleMarksChange = useCallback((studentId: string, field: 'theory' | 'practical', value: string) => {
-    // ... (unchanged)
     setStudentsForTable(prev =>
       prev.map(s =>
         s.$id === studentId
@@ -313,7 +341,6 @@ const TeacherMarksEntryPage: React.FC = () => {
   }, []);
 
   const handleAbsenceChange = useCallback((studentId: string, isAbsent: boolean) => {
-    // ... (unchanged)
     setStudentsForTable(prev =>
       prev.map(s =>
         s.$id === studentId
@@ -330,13 +357,11 @@ const TeacherMarksEntryPage: React.FC = () => {
   }, []);
 
   const selectedSubjectDetails = useMemo(() => {
-    // ... (unchanged)
     if (!selectedExam || !currentFilters.subjectName) return undefined;
     return selectedExam.subjectDetails.find(sd => sd.name === currentFilters.subjectName);
   }, [selectedExam, currentFilters.subjectName]);
 
   const handleSaveChanges = async () => {
-    // ... (unchanged)
     if (!selectedExam || !currentFilters.classId || !currentFilters.sectionId || !selectedSectionName || !currentFilters.subjectName || !selectedSubjectDetails) {
       showSnackbar("Missing filter selections or subject details.", "warning"); return;
     }
@@ -373,7 +398,7 @@ const TeacherMarksEntryPage: React.FC = () => {
 
       const data: Omit<MarkEntryDocument, '$id' | '$collectionId' | '$databaseId'> = {
         examId: selectedExam.$id, studentId: student.$id, classId: currentFilters.classId!,
-        sectionId: currentFilters.sectionId!, // Store section ID in marks document for consistency
+        sectionId: currentFilters.sectionId!,
         subjectName: currentFilters.subjectName!,
         theoryMarksObtained: theoryMarks, practicalMarksObtained: practicalMarks,
         isAbsent: student.isAbsentInput, updatedBy: teacherUserId, lastUpdatedAt: new Date().toISOString(),
@@ -394,6 +419,7 @@ const TeacherMarksEntryPage: React.FC = () => {
         }
         return s;
       }));
+      // Force recalc for the current exam
       setExamEntryPercentages(prev => ({ ...prev, [selectedExam.$id]: undefined }));
     } catch (error: any) {
       console.error("Failed to save marks:", error);
@@ -404,23 +430,21 @@ const TeacherMarksEntryPage: React.FC = () => {
   };
 
   const handleCancelChanges = useCallback(() => {
-    // ... (unchanged)
     if (selectedExam && currentFilters.classId && currentFilters.sectionId && currentFilters.subjectName) {
         const originalFilters = { ...currentFilters };
-        const originalSectionName = selectedSectionName; // Preserve original section name
+        const originalSectionName = selectedSectionName;
         setCurrentFilters(prev => ({ ...prev, subjectName: "___temp_reset_trigger___" }));
         setTimeout(() => {
              setCurrentFilters(originalFilters);
-             setSelectedSectionName(originalSectionName); // Explicitly restore if needed by fetch logic
+             setSelectedSectionName(originalSectionName);
         }, 0);
     }
     showSnackbar("Changes cancelled.", "info");
-  }, [selectedExam, currentFilters, selectedSectionName]); // Added selectedSectionName
+  }, [selectedExam, currentFilters, selectedSectionName]);
 
   const hasUnsavedChanges = useMemo(() => studentsForTable.some(s => s.isModified), [studentsForTable]);
 
   const handleOpenPublishPopover = () => {
-    // ... (unchanged)
     if (selectedExam) {
       setPublishIsGpa(selectedExam.isGpa || false);
       setIsPublishPopoverOpen(true);
@@ -428,7 +452,6 @@ const TeacherMarksEntryPage: React.FC = () => {
   };
 
   const handleConfirmPublish = async () => {
-    // ... (unchanged)
     if (!selectedExam || !user) {
       showSnackbar("No exam selected or user not identified.", "error");
       return;
@@ -459,8 +482,11 @@ const TeacherMarksEntryPage: React.FC = () => {
 
       const updatedExamData = { ...selectedExam, isPublished: true, isGpa: publishIsGpa };
       setSelectedExam(updatedExamData);
-      setAllExams(prevExams => prevExams.map(ex => ex.$id === selectedExam.$id ? updatedExamData : ex));
-      setFilteredExams(prevExams => prevExams.map(ex => ex.$id === selectedExam.$id ? updatedExamData : ex));
+      const updateExamInList = (ex: Exam) => ex.$id === selectedExam.$id ? updatedExamData : ex;
+      setAllExams(prevExams => prevExams.map(updateExamInList));
+      // Update filteredExams directly to ensure search results are consistent if a search is active
+      setFilteredExams(prevFilteredExams => prevFilteredExams.map(updateExamInList));
+
 
       showSnackbar("Results published successfully and notification sent!", "success");
     } catch (error: any) {
@@ -472,7 +498,8 @@ const TeacherMarksEntryPage: React.FC = () => {
     }
   };
 
-  const isPageLoading = !initialAuthAttempted || isLoadingExams;
+  // isLoadingExams is for the initial load. isReloadingExams is for the button action.
+  const isPageLoading = !initialAuthAttempted || (isLoadingExams && !isReloadingExams);
   const showStudentFilterPrompt = !currentFilters.classId || !currentFilters.sectionId || !currentFilters.subjectName || (!isLoadingStudents && !selectedSectionName && !!currentFilters.sectionId);
 
 
@@ -490,9 +517,20 @@ const TeacherMarksEntryPage: React.FC = () => {
                 <ArrowLeftIcon className="h-6 w-6 text-indigo-600" />
             </Button>
         )}
-        <h1 className="text-2xl font-bold text-gray-800">
+        <h1 className="text-2xl font-bold text-gray-800 flex-grow">
             {selectedExam ? `Marks Entry: ${selectedExam.title}` : 'Select Exam for Marks Entry'}
         </h1>
+        {/* <<< RELOAD BUTTON ADDED HERE >>> */}
+        {!selectedExam && ( // Only show reload for the exam list view
+            <ActionButton
+                icon={<ArrowPathIcon className="h-5 w-5" />}
+                onClick={handleReloadExams}
+                color="blue"
+                isLoading={isReloadingExams}
+                className="ml-3"
+                tooltipText="Reload Exam List"
+            />
+        )}
       </div>
 
       {!selectedExam ? (
@@ -500,7 +538,7 @@ const TeacherMarksEntryPage: React.FC = () => {
             <div className="mb-6">
                 <SearchBar placeholder="Search exams by title or type..." value={searchTerm} onValueChange={setSearchTerm} className="max-w-lg" />
             </div>
-            {isPageLoading ? (
+            {isPageLoading ? ( // Uses isPageLoading which considers initial load
                 <div className="flex justify-center items-center h-48"><Spinner label="Loading Data..." size="lg" /></div>
             ) : filteredExams.length === 0 ? (
                 <p className="text-center text-gray-500 py-10 text-lg">
@@ -524,7 +562,6 @@ const TeacherMarksEntryPage: React.FC = () => {
       ) : (
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
             {label === 'admin' && (
-              // ... (Admin Publish Controls - unchanged)
               <div className="mb-6 p-4 border border-indigo-200 rounded-lg bg-indigo-50">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <div>
@@ -585,7 +622,6 @@ const TeacherMarksEntryPage: React.FC = () => {
       )}
 
       {selectedExam && (
-        // ... (Popover for Confirming Publication - unchanged)
         <Popover
           isOpen={isPublishPopoverOpen}
           onClose={() => setIsPublishPopoverOpen(false)}

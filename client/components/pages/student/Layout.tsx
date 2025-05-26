@@ -46,13 +46,13 @@ import Attd_Calendar from "./components/Attd_Calendar/Calendar";
 import StudentExamViewPage from "./components/Exam";
 import StudentAttendancePage from "./components/Attendance/StudentAttendancePage";
 import MyRoutinePage from "./components/Routine/MyRoutinePage";
-import StudentDashboardPage from "./components/Result/StudentDashboardPage";
 import StudentNotesPage from "./components/Notes/StudentNotesPage";
 import StudentGalleryPage from "./components/Gallery/StudentGalleryPage";
 import StudentLessonPlanCard from "./components/LessonPlan/StudentLessonPlanCard";
 import StudentLessonPlansPage from "./components/LessonPlan/StudentLessonPlansPage";
 import StudentMyReviewsPage from "./components/Review/StudentMyReviewsPage";
 import StudentAssignmentsPage from "./components/Assignment/StudentAssignmentsPage";
+import StudentResultPage from "./components/Result/StudentResultPage";
 
 export default function Layout() {
   const [sidebarState, setSidebarState] = useState<number>(() => {
@@ -75,13 +75,13 @@ export default function Layout() {
     { name: "Exam", icon: UsersIcon, component: StudentExamViewPage },
     { name: "Calendar", icon: CalendarIcon, component: Calendar },
     { name: "Routine", icon: CalendarIcon, component: MyRoutinePage },
-    {name: "Result", icon: UsersIcon, component: StudentDashboardPage}, // Main Attendance component
     {name: "Notes", icon: UsersIcon, component: StudentNotesPage}, // Main Attendance component
     {name: "Gallery", icon: UsersIcon, component: StudentGalleryPage}, // Main Attendance component
     {name: "Lessons", icon: UsersIcon, component: StudentLessonPlansPage}, // Main Attendance component
     {name: "Review", icon: UsersIcon, component: StudentMyReviewsPage}, // Main Attendance component
     {name: "Assignment", icon: UsersIcon, component: StudentAssignmentsPage}, // Main Attendance component
 
+    {name: "Result", icon: UsersIcon, component: StudentResultPage}, // Main Attendance component
 
 
 
